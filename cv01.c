@@ -66,6 +66,7 @@ int main() {
 	close(sock);
 
 	printf("Exit Success\n");
+	printf("Exit Success\n");
 	return EXIT_OK;
 }
 

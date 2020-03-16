@@ -33,25 +33,17 @@ int main() {
         close(sock);
         exit(EXIT_FAILURE);
     }
-
-    if(bind(sock, (struct sockaddr*) &addr, sizeof(addr)) == -1){
-    perror("bind");
-    close(sock);
-    exit(EXIT_FAILURE);
-    }
-
-    for(;;) {
+    
         char buf[1000];
         memset(buf, '\0', sizeof(buf));
         int addr_len = sizeof(addr);
-        recvfrom(sock, buf, 100, 0, (struct sockaddr *)&addr, &addr_len);
-        char *ip = inet_ntoa(addr.sin_addr);
 
-        printf("Message from: %s text: %s",
-            *ip,
-            ntohs(addr.sin_port),
-            buf);
-    }
+        scanf("%s", buf);
+
+        sendto(sock, buf, strlen(buf), 0, (struct sockaddr *)&addr, &addr_len);
+        
+
+    
 
     return EXIT_SUCCESS;
 }

@@ -40,5 +40,17 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
+    for(;;) {
+        char buf[1000];
+        memset(buf, '\0', sizeof(buf));
+        recvfrom(sock, buf, 100, 0, (struct sockaddr *)&addr, sizeof(addr));
+        char *ip = inet_ntoa(addr.sin_addr);
+
+        printf("Message from: %s text: %s",
+            *ip,
+            ntohs(addr.sin_port),
+            buf);
+    }
+
     return EXIT_SUCCESS;
 }

@@ -176,7 +176,7 @@ int main(int argc, char **argv)
         memset(&ints[i], 0, sizeof(struct intDescriptor));
         strcpy(ints[i].name, argv[i + 1]);
 
-        ints[i].socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
+        ints[i].socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 
         if (ints[i].socket == -1)
         {
@@ -189,7 +189,7 @@ int main(int argc, char **argv)
         ints[i].index = if_nametoindex(argv[i + 1]);
 
         addr.sll_family = AF_PACKET;
-        addr.sll_protocol = htons(ETH_P_ARP);
+        addr.sll_protocol = htons(ETH_P_ALL);
         addr.sll_ifindex = ints[i].index;
 
         if (bind(ints[i].socket, (struct sockaddr *)&addr, sizeof(addr)) == -1)

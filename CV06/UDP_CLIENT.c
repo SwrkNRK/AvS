@@ -37,10 +37,10 @@ int main() {
         char buf[1000];
         memset(buf, '\0', sizeof(buf));
         int addr_len = sizeof(addr);
+        fgets(buf, 1000, stdin);
+        
 
-        scanf("%s", buf);
-
-        sendto(sock, buf, strlen(buf), 0, (struct sockaddr *)&addr, &addr_len);
+        sendto(sock, buf, strlen(buf), 0, (struct sockaddr *) &addr, &addr_len);
         
 
     

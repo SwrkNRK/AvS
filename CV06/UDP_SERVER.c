@@ -29,12 +29,12 @@ int main() {
     addr.sin_family = AF_INET;
     addr.sin_port = htons(PORT);
     if(inet_aton(IP_ADDR, &addr.sin_addr) == 0) {
-        printf("ERROR: inet_aton: ");
+        perror("inet_aton: ");
         close(sock);
         exit(EXIT_FAILURE);
     }
 
-    if(bind(sock, (struct sockaddr*) &addr, sizeof(addr)) == -1){
+    if(bind(sock, (const struct sockaddr *) &addr, sizeof(addr)) == -1){
     perror("bind");
     close(sock);
     exit(EXIT_FAILURE);
@@ -44,11 +44,11 @@ int main() {
         char buf[1000];
         memset(buf, '\0', sizeof(buf));
         int addr_len = sizeof(addr);
-        recvfrom(sock, buf, 100, 0, (struct sockaddr *)&addr, &addr_len);
+        recvfrom(sock, buf, 1000, 0, (struct sockaddr *) &addr, &addr_len);
         char *ip = inet_ntoa(addr.sin_addr);
 
-        printf("Message from: %s text: %s",
-            *ip,
+        printf("Message from: %s:%d text: %s",
+            ip,
             ntohs(addr.sin_port),
             buf);
     }

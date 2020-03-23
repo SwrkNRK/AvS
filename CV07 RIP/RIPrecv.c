@@ -13,6 +13,24 @@
 #define IP "10.123.123.242"
 #define IF "tap0"
 
+struct ripEntry {
+	uint16_t af;
+	uint16_t routeTag;
+	struct in_addr prefix;
+	struct in_addr mask;
+	struct in_addr nextHop;
+	uint32_t metric;
+}__attribute__((packed));
+
+
+struct ripHdr {
+	uint8_t cmd;
+	uint8_t ver;
+	uint16_t empty;
+	struct ripEntry entry[0];
+}__attribute__((packed));
+
+
 int main()
 {
 	int sock;
@@ -60,17 +78,38 @@ int main()
 
 	for(;;)
 	{
-		char buf[1000];
-
-		memset(buf, '\0', 1000);
+		char buf[1500];
+		int readLen = 0;
+		memset(buf, '\0', 1500);
 		int addr_len = sizeof(addr);
-		recvfrom(sock, buf, 1000, 0, (struct sockaddr *) &addr, &addr_len);
+		readLen = recvfrom(sock, buf, 1500, 0, (struct sockaddr *) &addr, &addr_len);
 		char *ip = inet_ntoa(addr.sin_addr);
+		printf("RIPv2 from: %s\n",ip);
+		//spracovanie RIP headeru
+		struct ripHdr *hdr;
+		hdr = (struct ripHdr *)buf;
 
-		printf("Message from: %s:%d text: %s",
-				ip,
-				ntohs(addr.sin_port),
-				buf);
+
+
+		printf("	cmd: 0x%02hx, version 0x%02hx\n",hdr->cmd, hdr->ver);
+		readLen -= sizeof(struct ripHdr);
+		//spracovavie RIP smerovacich zaznamov
+		struct ripEntry *entry;
+		entry = (struct ripEntry *)hdr->entry;
+		while (readLen > sizeof(struct ripEntry))
+		{
+
+			printf("	prefix: %s, ",inet_ntoa(entry->prefix));
+			printf("	mask: %s, ",inet_ntoa(entry->mask));
+			printf("	nextHop: %s, ",inet_ntoa(entry->nextHop));
+			printf("	metric: %d\n ",ntohl(entry->metric));
+
+			entry += sizeof(struct ripEntry);		//posun na dalsiu polozku
+			readLen -= sizeof(struct ripEntry);
+
+		}
+		
+
 	}
 
 

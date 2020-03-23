@@ -9,7 +9,7 @@
 #include <arpa/inet.h>
 
 #define PORT 1234
-#define IP_ADDR "10.123.123.242"
+//#define IP_ADDR "10.123.123.242"
 
 int main()
 {
@@ -26,12 +26,14 @@ int main()
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(PORT);
-	if(inet_aton(IP_ADDR, &addr.sin_addr) == 0)
+    addr.sin_addr.s_addr = INADDR_ANY;  // pocuvaj na vsetkych rozhraniach
+    
+/*	if(inet_aton(IP_ADDR, &addr.sin_addr) == 0)
 	{
 		printf("ERROR: inet_aton");
 		close(sock);
 		exit(EXIT_FAILURE);
-	}
+	}*/
 
 	if(bind(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1)
 	{

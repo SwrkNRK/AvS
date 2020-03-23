@@ -42,8 +42,8 @@ int main()
 	memset(&multicast, 0, sizeof(multicast));
     //multicast.imr_address.s_addr = INADDR_ANY;  //IP hociktooreho lokalneho rozhrania
     // multicast.imr_ifindex = 0;                  //vsetko rozhranias
-	inet_aton(IP, &multicast.imp_address);			//pocuvaj na rozhrani tap0
-	multicast.imp_ifindex = if_nametoindex(IF);
+	inet_aton(IP, &multicast.imr_address);			//pocuvaj na rozhrani tap0
+	multicast.imr_ifindex = if_nametoindex(IF);
     if(inet_aton("224.0.0.9", &multicast.imr_multiaddr) == 0) {
         printf("inet_ATON");
         close(sock);

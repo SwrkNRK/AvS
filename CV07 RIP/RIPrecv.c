@@ -7,8 +7,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 
 #define PORT 520
+#define IP "10.123.123.242"
+#define IF "tap0"
 
 int main()
 {
@@ -25,7 +28,8 @@ int main()
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(PORT);
-    addr.sin_addr.s_addr = INADDR_ANY;  // pocuvaj na vsetkych rozhraniach
+   // addr.sin_addr.s_addr = INADDR_ANY;  // pocuvaj na vsetkych rozhraniach
+	inet_aton(IP, &addr.sin_addr);			//pocuvaj na rozhrani tap0
 
 	if(bind(sock, (struct sockaddr *)&addr, sizeof(addr)) == -1)
 	{
@@ -35,8 +39,11 @@ int main()
 	}
     
     struct ip_mreqn multicast;
-    multicast.imr_address.s_addr = INADDR_ANY;  //IP hociktooreho lokalneho rozhrania
-    multicast.imr_ifindex = 0;                  //vsetko rozhranias
+	memset(&multicast, 0, sizeof(multicast));
+    //multicast.imr_address.s_addr = INADDR_ANY;  //IP hociktooreho lokalneho rozhrania
+    // multicast.imr_ifindex = 0;                  //vsetko rozhranias
+	inet_aton(IP, &multicast.imp_address);			//pocuvaj na rozhrani tap0
+	multicast.imp_ifindex = if_nametoindex(IF);
     if(inet_aton("224.0.0.9", &multicast.imr_multiaddr) == 0) {
         printf("inet_ATON");
         close(sock);

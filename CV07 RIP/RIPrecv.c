@@ -54,7 +54,7 @@ int main()
 	for(;;)
 	{
 		char buf[1000];
-        char buf2[1000];
+
 		memset(buf, '\0', 1000);
 		int addr_len = sizeof(addr);
 		recvfrom(sock, buf, 1000, 0, (struct sockaddr *) &addr, &addr_len);

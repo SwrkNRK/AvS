@@ -240,10 +240,10 @@ SenderThread (void *Arg)
 	{
 	  E->AF = htons (AF_INET);
 	  //E->Net.s_addr = htonl ((10 << 24) + (102 << 16) + (i << 8));
-    E->Net.s_addr = route[i+1].dstAddr;
-	  E->Mask.s_addr = route[i+1].mask;
+    E->Net.s_addr = route[i].dstAddr;
+	  E->Mask.s_addr = route[i].mask;
 	  E->Metric = htonl (RIP_N_METRIC);
-    E->NHop.s_addr = route[i+1].gateWay;
+    E->NHop.s_addr = route[i].gateWay;
 	  BytesToSend += sizeof (struct RIPNetEntry);
 	  E++;
 	  ECount++;

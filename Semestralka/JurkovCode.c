@@ -115,13 +115,13 @@ SenderThread (void *Arg)
   struct timespec TimeOut;
 
   //EDIT
-  char Network[IPTXTLEN] = "192.168.6.0";
+  char Network[IPTXTLEN] = "192.168.20.0";
 	char Netmask[IPTXTLEN] = "255.255.255.0";
 	char NextHop[IPTXTLEN] = "0.0.0.0";
 
-  route[0].dstAddr = Network;
-  route[0].gateWay = NextHop;
-  route[0].mask = Netmask;
+  route[0].dstAddr = inet_addr(Network);
+  route[0].gateWay = inet_addr(NextHop);
+  route[0].mask = inet_addr(Netmask);
 
   if (RM == NULL)
     {

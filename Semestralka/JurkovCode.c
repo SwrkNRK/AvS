@@ -32,7 +32,7 @@
 
 #define		EXIT_ERROR	(1)
 
-#define ETH "eth0"
+#define ETH "eth2"
 #define IP "192.168.5.0"
 #define GATEWAY "0.0.0.0"
 #define GENMASK "255.255.255.0"

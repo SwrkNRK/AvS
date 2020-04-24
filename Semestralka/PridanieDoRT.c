@@ -9,12 +9,12 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 
-#define ETH "eth0"
+#define ETH "eth2"
 #define IP "192.168.5.0"
 #define GATEWAY "0.0.0.0"
 #define GENMASK "255.255.255.0"
 
-bool addNullRoute( long paMSASK )            
+bool addNullRoute( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH )            
 { 
    // create the control socket.
    //int fd = socket( PF_INET, SOCK_DGRAM, IPPROTO_IP );
@@ -44,19 +44,19 @@ bool addNullRoute( long paMSASK )
    // set the gateway to 0.
    struct sockaddr_in *addr = (struct sockaddr_in *)&route.rt_gateway;
    addr->sin_family = AF_INET;
-   addr->sin_addr.s_addr = inet_addr(GATEWAY);
+   addr->sin_addr.s_addr = inet_addr(paGATEWAY);
     addr->sin_port = 0;
 
     ((struct sockaddr_in *)&route.rt_dst)->sin_family = AF_INET;
-    ((struct sockaddr_in *)&route.rt_dst)->sin_addr.s_addr = inet_addr(IP);
+    ((struct sockaddr_in *)&route.rt_dst)->sin_addr.s_addr = inet_addr(paIP);
     ((struct sockaddr_in *)&route.rt_dst)->sin_port = 0;
 
     ((struct sockaddr_in *)&route.rt_genmask)->sin_family = AF_INET;
-    ((struct sockaddr_in *)&route.rt_genmask)->sin_addr.s_addr = inet_addr(GENMASK);
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_addr.s_addr = inet_addr(paGENMASK);
     ((struct sockaddr_in *)&route.rt_genmask)->sin_port = 0;
 
     memcpy((void*) &route.rt_gateway, addr, sizeof(*addr));
-    route.rt_dev = "eth1";
+    route.rt_dev = paETH;
     
 /*
    // set the host we are rejecting. 
@@ -96,7 +96,11 @@ bool addNullRoute( long paMSASK )
 }
 
 int main (){
-    addNullRoute(1);
+    char Network[20] = IP;
+	      char gateway[20] = GATEWAY;
+	      char genmask[20] = GENMASK;
+          char viaETH[20] = ETH;
+    addNullRoute(Network, gateway, genmask, viaETH);
     printf("Exit Success\n");
     return EXIT_SUCCESS;
 }

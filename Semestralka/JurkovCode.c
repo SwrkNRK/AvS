@@ -31,11 +31,7 @@
 #define		RIP_N_METRIC	(1)
 
 #define		EXIT_ERROR	(1)
-
 #define ETH "eth2"
-#define IP "192.168.5.0"
-#define GATEWAY "0.0.0.0"
-#define GENMASK "255.255.255.0"
 
 struct RIPNetEntry
 {
@@ -108,89 +104,6 @@ strcpy(ifName, ifr.ifr_name);
 return if_index;
 } 
 
-bool addNullRoute( long host )            
-{ 
-   // create the control socket.
-   //int fd = socket( PF_INET, SOCK_DGRAM, IPPROTO_IP );
-   int fd = socket( AF_INET, SOCK_DGRAM, 0 );
-   if(fd == -1){
-       perror("Socket: ");
-        return false;
-   }
-
-   struct rtentry route;
-
-      memset( &route, 0, sizeof( route ) );
-      /*
-    strcpy(route.rt_dst.sa_data, IP);
-    route.rt_dst.sa_family = AF_INET;
-    strcpy(route.rt_gateway.sa_data, GATEWAY);
-    strcpy(route.rt_genmask.sa_data, GENMASK);
-    route.rt_dev = RTMSG_NEWDEVICE;
-    */
-/*
-    inet_aton(IP, &route.rt_dst);
-    inet_aton(GATEWAY, &route.rt_gateway);
-    inet_aton(GENMASK, &route.rt_genmask);
-   */
-
-
-   // set the gateway to 0.
-   struct sockaddr_in *addr = (struct sockaddr_in *)&route.rt_gateway;
-   addr->sin_family = AF_INET;
-   addr->sin_addr.s_addr = inet_addr(GATEWAY);
-    addr->sin_port = 0;
-
-    ((struct sockaddr_in *)&route.rt_dst)->sin_family = AF_INET;
-    ((struct sockaddr_in *)&route.rt_dst)->sin_addr.s_addr = inet_addr(IP);
-    ((struct sockaddr_in *)&route.rt_dst)->sin_port = 0;
-
-    ((struct sockaddr_in *)&route.rt_genmask)->sin_family = AF_INET;
-    ((struct sockaddr_in *)&route.rt_genmask)->sin_addr.s_addr = inet_addr(GENMASK);
-    ((struct sockaddr_in *)&route.rt_genmask)->sin_port = 0;
-
-    memcpy((void*) &route.rt_gateway, addr, sizeof(*addr));
-    route.rt_dev = "eth1";
-    
-/*
-   // set the host we are rejecting. 
-   addr = (struct sockaddr_in*) &route.rt_dst;
-   addr->sin_family = AF_INET;
-   addr->sin_addr.s_addr = htonl(host);
-*/
-   // Set the mask. In this case we are using 255.255.255.255, to block a single
-   // IP. But you could use a less restrictive mask to block a range of IPs. 
-   // To block and entire C block you would use 255.255.255.0, or 0x00FFFFFFF
-   addr = (struct sockaddr_in*) &route.rt_genmask;
-   addr->sin_family = AF_INET;
-   addr->sin_addr.s_addr = 0x00FFFFFF;
-
-
-   // These flags mean: this route is created "up", or active
-   // The blocked entity is a "host" as opposed to a "gateway"
-   // The packets should be rejected. On BSD there is a flag RTF_BLACKHOLE
-   // that causes packets to be dropped silently. We would use that if Linux
-   // had it. RTF_REJECT will cause the network interface to signal that the 
-   // packets are being actively rejected.
-   route.rt_flags = RTF_UP;
-   route.rt_metric = 0;
-    int p;
-   // this is where the magic happens..
-   if ( p = ioctl( fd, SIOCADDRT, &route ) )
-   {
-       printf("Succes %d\n",p);
-       perror("IOCTL: \n");
-      close( fd );
-      return false;
-   } else {
-       printf("problem\n");
-       perror("IOCTL: \n");
-   }
-
-   // remember to close the socket lest you leak handles.
-   close( fd );
-   return true; 
-}
 
 void *
 SenderThread (void *Arg)
@@ -200,6 +113,15 @@ SenderThread (void *Arg)
   int BytesToSend;
   struct sockaddr_in DstAddr;
   struct timespec TimeOut;
+
+  //EDIT
+  char Network[IPTXTLEN] = "192.168.6.0";
+	char Netmask[IPTXTLEN] = "255.255.255.0";
+	char NextHop[IPTXTLEN] = "0.0.0.0";
+
+  route[0].dstAddr = Network;
+  route[0].gateWay = NextHop;
+  route[0].mask = Netmask;
 
   if (RM == NULL)
     {
@@ -232,11 +154,11 @@ SenderThread (void *Arg)
       BytesToSend = sizeof (struct RIPMessage);
       ECount = 0;
 
-      TimeOut.tv_sec = 5;
+      TimeOut.tv_sec = 10;
       TimeOut.tv_nsec = 0;
       nanosleep (&TimeOut, NULL);
 
-      for (int i = 0; i < pocetRouteZaznamov; i++)                                       //POSIELANIE
+      for (int i = 0; i < 1; i++)                                       //POSIELANIE
 	{
 	  E->AF = htons (AF_INET);
 	  //E->Net.s_addr = htonl ((10 << 24) + (102 << 16) + (i << 8));
@@ -461,6 +383,87 @@ void natiahniTabulku(){
 }
 }
 
+bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH )            
+{ 
+   // create the control socket.
+   //int fd = socket( PF_INET, SOCK_DGRAM, IPPROTO_IP );
+   int fd = socket( AF_INET, SOCK_DGRAM, 0 );
+   if(fd == -1){
+       perror("Socket: ");
+        return false;
+   }
+
+   struct rtentry route;
+
+      memset( &route, 0, sizeof( route ) );
+      /*
+    strcpy(route.rt_dst.sa_data, IP);
+    route.rt_dst.sa_family = AF_INET;
+    strcpy(route.rt_gateway.sa_data, GATEWAY);
+    strcpy(route.rt_genmask.sa_data, GENMASK);
+    route.rt_dev = RTMSG_NEWDEVICE;
+    */
+/*
+    inet_aton(IP, &route.rt_dst);
+    inet_aton(GATEWAY, &route.rt_gateway);
+    inet_aton(GENMASK, &route.rt_genmask);
+   */
+
+
+   // set the gateway to 0.
+   struct sockaddr_in *addr = (struct sockaddr_in *)&route.rt_gateway;
+   addr->sin_family = AF_INET;
+   addr->sin_addr.s_addr = inet_addr(paGATEWAY);
+    addr->sin_port = 0;
+
+    ((struct sockaddr_in *)&route.rt_dst)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&route.rt_dst)->sin_addr.s_addr = inet_addr(paIP);
+    ((struct sockaddr_in *)&route.rt_dst)->sin_port = 0;
+
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_addr.s_addr = inet_addr(paGENMASK);
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_port = 0;
+
+    memcpy((void*) &route.rt_gateway, addr, sizeof(*addr));
+    route.rt_dev = paETH;
+    
+/*
+   // set the host we are rejecting. 
+   addr = (struct sockaddr_in*) &route.rt_dst;
+   addr->sin_family = AF_INET;
+   addr->sin_addr.s_addr = htonl(host);
+*/
+   // Set the mask. In this case we are using 255.255.255.255, to block a single
+   // IP. But you could use a less restrictive mask to block a range of IPs. 
+   // To block and entire C block you would use 255.255.255.0, or 0x00FFFFFFF
+   addr = (struct sockaddr_in*) &route.rt_genmask;
+   addr->sin_family = AF_INET;
+   //addr->sin_addr.s_addr = 0xFFFFFFFF;
+
+
+   // These flags mean: this route is created "up", or active
+   // The blocked entity is a "host" as opposed to a "gateway"
+   // The packets should be rejected. On BSD there is a flag RTF_BLACKHOLE
+   // that causes packets to be dropped silently. We would use that if Linux
+   // had it. RTF_REJECT will cause the network interface to signal that the 
+   // packets are being actively rejected.
+   route.rt_flags = RTF_UP;
+   route.rt_metric = 0;
+    int p;
+   // this is where the magic happens..
+   if ( p = ioctl( fd, SIOCADDRT, &route ) )
+   {
+       printf("Succes %d\n",p);
+       perror("IOCTL: \n");
+      close( fd );
+      return false;
+   }
+
+   // remember to close the socket lest you leak handles.
+   close( fd );
+   return true; 
+}
+
 char* getIPfromInterface(char* name){
   int fd;
   struct ifreq ifr;
@@ -608,6 +611,7 @@ main (void)
 	      char Network[IPTXTLEN];
 	      char Netmask[IPTXTLEN];
 	      char NextHop[IPTXTLEN];
+        char viaETH[IPTXTLEN] = ETH;
 	      memset (Network, '\0', IPTXTLEN);
 	      memset (Netmask, '\0', IPTXTLEN);
 	      memset (NextHop, '\0', IPTXTLEN);
@@ -617,7 +621,7 @@ main (void)
 	      printf ("\t%s/ %s, metric=%u, nh=%s, tag=%hu\n",
 		      Network, Netmask, ntohl (E->Metric),
 		      NextHop, ntohs (E->Tag));
-              //addNullRoute(1);
+              addRTE(Network, NextHop, Netmask, viaETH);
 
 	    }
 	  else

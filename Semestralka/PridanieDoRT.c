@@ -14,7 +14,7 @@
 #define GATEWAY "0.0.0.0"
 #define GENMASK "255.255.255.0"
 
-bool addNullRoute( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH )            
+bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH )            
 { 
    // create the control socket.
    //int fd = socket( PF_INET, SOCK_DGRAM, IPPROTO_IP );

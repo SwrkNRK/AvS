@@ -14,7 +14,7 @@
 #define GATEWAY "0.0.0.0"
 #define GENMASK "255.255.255.0"
 
-bool addNullRoute( long host )            
+bool addNullRoute( long paMSASK )            
 { 
    // create the control socket.
    //int fd = socket( PF_INET, SOCK_DGRAM, IPPROTO_IP );
@@ -69,7 +69,7 @@ bool addNullRoute( long host )
    // To block and entire C block you would use 255.255.255.0, or 0x00FFFFFFF
    addr = (struct sockaddr_in*) &route.rt_genmask;
    addr->sin_family = AF_INET;
-   addr->sin_addr.s_addr = 0x00FFFFFF;
+   //addr->sin_addr.s_addr = 0xFFFFFFFF;
 
 
    // These flags mean: this route is created "up", or active
@@ -88,9 +88,6 @@ bool addNullRoute( long host )
        perror("IOCTL: \n");
       close( fd );
       return false;
-   } else {
-       printf("problem\n");
-       perror("IOCTL: \n");
    }
 
    // remember to close the socket lest you leak handles.

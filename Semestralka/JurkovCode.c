@@ -451,6 +451,7 @@ void natiahniTabulku(){
     pom.s_addr = route[j].gateWay;
     strcpy(pole,inet_ntoa(pom));
     printf("\t%-18s",pole);
+    route[j].mask = ntohl(route[j].mask);
     pom.s_addr = route[j].mask;
     strcpy(pole,inet_ntoa(pom));
     printf("\t%-18s",pole);
@@ -586,10 +587,11 @@ main (void)
 	      strncpy (Network, inet_ntoa (E->Net), IPTXTLEN - 1);
 	      strncpy (Netmask, inet_ntoa (E->Mask), IPTXTLEN - 1);
 	      strncpy (NextHop, inet_ntoa (E->NHop), IPTXTLEN - 1);
-	      printf ("\t%s/%s, metric=%u, nh=%s, tag=%hu\n",
+	      printf ("\t%s/ %s, metric=%u, nh=%s, tag=%hu\n",
 		      Network, Netmask, ntohl (E->Metric),
 		      NextHop, ntohs (E->Tag));
               //addNullRoute(1);
+
 	    }
 	  else
 	    printf ("\tUnknown address family %hu\n", ntohs (E->AF));

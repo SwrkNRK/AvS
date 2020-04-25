@@ -115,7 +115,7 @@ SenderThread (void *Arg)
   struct timespec TimeOut;
 
   //EDIT
-  char Network[IPTXTLEN] = "192.168.10.0";
+  char Network[IPTXTLEN] = "192.168.20.0";
 	char Netmask[IPTXTLEN] = "255.255.255.0";
 	char NextHop[IPTXTLEN] = "0.0.0.0";
 

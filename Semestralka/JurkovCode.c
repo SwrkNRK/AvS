@@ -115,13 +115,13 @@ SenderThread (void *Arg)
   struct timespec TimeOut;
 
   //EDIT
-  char Network[IPTXTLEN] = "192.168.6.0";
+  char Network[IPTXTLEN] = "192.168.10.0";
 	char Netmask[IPTXTLEN] = "255.255.255.0";
 	char NextHop[IPTXTLEN] = "0.0.0.0";
 
-  route[0].dstAddr = Network;
-  route[0].gateWay = NextHop;
-  route[0].mask = Netmask;
+  route[0].dstAddr = inet_addr(Network);
+  route[0].gateWay = inet_addr(NextHop);
+  route[0].mask = inet_addr(Netmask);
 
   if (RM == NULL)
     {
@@ -448,7 +448,7 @@ bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH )
    // had it. RTF_REJECT will cause the network interface to signal that the 
    // packets are being actively rejected.
    route.rt_flags = RTF_UP;
-   route.rt_metric = 0;
+   route.rt_metric = 1;
     int p;
    // this is where the magic happens..
    if ( p = ioctl( fd, SIOCADDRT, &route ) )

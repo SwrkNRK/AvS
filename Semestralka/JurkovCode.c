@@ -448,7 +448,7 @@ bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH )
    // had it. RTF_REJECT will cause the network interface to signal that the 
    // packets are being actively rejected.
    route.rt_flags = RTF_UP;
-   route.rt_metric = 0;
+   route.rt_metric = 1;
     int p;
    // this is where the magic happens..
    if ( p = ioctl( fd, SIOCADDRT, &route ) )

@@ -73,6 +73,7 @@ char ifName[IF_NAMESIZE];
 };
 
 struct RouteInfo route[25];
+int routeCount = 0;
 int pocetRouteZaznamov;
 
 /*--------------------------------------------------------------
@@ -114,14 +115,6 @@ SenderThread (void *Arg)
   struct sockaddr_in DstAddr;
   struct timespec TimeOut;
 
-  //EDIT
-  char Network[IPTXTLEN] = "192.168.20.0";
-	char Netmask[IPTXTLEN] = "255.255.255.0";
-	char NextHop[IPTXTLEN] = "0.0.0.0";
-
-  route[0].dstAddr = inet_addr(Network);
-  route[0].gateWay = inet_addr(NextHop);
-  route[0].mask = inet_addr(Netmask);
 
   if (RM == NULL)
     {
@@ -158,7 +151,7 @@ SenderThread (void *Arg)
       TimeOut.tv_nsec = 0;
       nanosleep (&TimeOut, NULL);
 
-      for (int i = 0; i < 1; i++)                                       //POSIELANIE
+      for (int i = 0; i < routeCount; i++)                                       //POSIELANIE
 	{
 	  E->AF = htons (AF_INET);
 	  //E->Net.s_addr = htonl ((10 << 24) + (102 << 16) + (i << 8));
@@ -383,7 +376,7 @@ void natiahniTabulku(){
 }
 }
 
-bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH )            
+bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool useGateway )            
 { 
    // create the control socket.
    //int fd = socket( PF_INET, SOCK_DGRAM, IPPROTO_IP );
@@ -396,25 +389,7 @@ bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH )
    struct rtentry route;
 
       memset( &route, 0, sizeof( route ) );
-      /*
-    strcpy(route.rt_dst.sa_data, IP);
-    route.rt_dst.sa_family = AF_INET;
-    strcpy(route.rt_gateway.sa_data, GATEWAY);
-    strcpy(route.rt_genmask.sa_data, GENMASK);
-    route.rt_dev = RTMSG_NEWDEVICE;
-    */
-/*
-    inet_aton(IP, &route.rt_dst);
-    inet_aton(GATEWAY, &route.rt_gateway);
-    inet_aton(GENMASK, &route.rt_genmask);
-   */
-
-
-   // set the gateway to 0.
-   struct sockaddr_in *addr = (struct sockaddr_in *)&route.rt_gateway;
-   addr->sin_family = AF_INET;
-   addr->sin_addr.s_addr = inet_addr(paGATEWAY);
-    addr->sin_port = 0;
+      
 
     ((struct sockaddr_in *)&route.rt_dst)->sin_family = AF_INET;
     ((struct sockaddr_in *)&route.rt_dst)->sin_addr.s_addr = inet_addr(paIP);
@@ -424,31 +399,17 @@ bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH )
     ((struct sockaddr_in *)&route.rt_genmask)->sin_addr.s_addr = inet_addr(paGENMASK);
     ((struct sockaddr_in *)&route.rt_genmask)->sin_port = 0;
 
-    memcpy((void*) &route.rt_gateway, addr, sizeof(*addr));
-    route.rt_dev = paETH;
-    
-/*
-   // set the host we are rejecting. 
-   addr = (struct sockaddr_in*) &route.rt_dst;
-   addr->sin_family = AF_INET;
-   addr->sin_addr.s_addr = htonl(host);
-*/
-   // Set the mask. In this case we are using 255.255.255.255, to block a single
-   // IP. But you could use a less restrictive mask to block a range of IPs. 
-   // To block and entire C block you would use 255.255.255.0, or 0x00FFFFFFF
-   addr = (struct sockaddr_in*) &route.rt_genmask;
-   addr->sin_family = AF_INET;
-   //addr->sin_addr.s_addr = 0xFFFFFFFF;
 
-
-   // These flags mean: this route is created "up", or active
-   // The blocked entity is a "host" as opposed to a "gateway"
-   // The packets should be rejected. On BSD there is a flag RTF_BLACKHOLE
-   // that causes packets to be dropped silently. We would use that if Linux
-   // had it. RTF_REJECT will cause the network interface to signal that the 
-   // packets are being actively rejected.
-   route.rt_flags = RTF_UP;
+  ((struct sockaddr_in *)&route.rt_gateway)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&route.rt_gateway)->sin_addr.s_addr = inet_addr(paGATEWAY);
+  ((struct sockaddr_in *)&route.rt_gateway)->sin_port = 0;
+  
+   route.rt_dev = paETH;
    route.rt_metric = 1;
+
+  if(useGateway){ route.rt_flags = RTF_UP | RTF_GATEWAY;
+  } else {route.rt_flags = RTF_UP;}
+
     int p;
    // this is where the magic happens..
    if ( p = ioctl( fd, SIOCADDRT, &route ) )
@@ -485,18 +446,73 @@ char* getIPfromInterface(char* name){
  return name;
 }
 
-int
-main (void)
+
+
+void loadConfig(FILE* config){
+int c = fgetc(config);
+int i=0;
+char buf[20];
+memset(buf, '\0', sizeof(buf));
+
+while (c != EOF)
 {
+  buf[i] = c;
+  i++;
+  //IP
+  if(c == ' '){
+    route[routeCount].dstAddr = inet_addr(buf);
+    memset(buf, '\0', sizeof(buf));
+    i=0;
+  }
+  //MASK
+  if(c == '\n' || c == EOF){
+    route[routeCount].mask = inet_addr(buf);
+    memset(buf, '\0', sizeof(buf));
+    i=0;
+    routeCount++;
+  }
+
+    c = fgetc(config);
+}
+
+if(c == '\n' || c == EOF){
+    route[routeCount].mask = inet_addr(buf);
+    memset(buf, '\0', sizeof(buf));
+    i=0;
+    routeCount++;
+  }
+
+}
+
+int
+main (int argc, char *argv[])
+{
+  if(argc < 2){
+    printf("Je potrebne zadat parameter nazov txt suboru v ktorom je config\n");
+    return EXIT_FAILURE;
+  }
+  printf("%s\n",argv[1]);
+FILE* conf = fopen(argv[1], "r");
+loadConfig(conf);
+fclose(conf);
+
   int Socket;
   struct sockaddr_in MyAddr;
   struct ip_mreqn McastGroup;
   struct RIPMessage *RM;
   pthread_t TID;
 
+
+/////////////////////////////////////////////////////////////////////////////////////////PRidanie Multicast route 224.0.0.0
+  char MNetwork[IPTXTLEN] = "224.0.0.0";
+	      char MNetmask[IPTXTLEN] = "255.255.255.0";
+	      char MNextHop[IPTXTLEN] = "0.0.0.0";
+        char MviaETH[IPTXTLEN] = ETH;
+              addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
+
 ///////////////////////////////////////////////////////////////////////////////////////////////NACITANIE LINUX SMEROVACEJ TABULKY
 
-  natiahniTabulku();
+  //natiahniTabulku();
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
   if (inet_aton (RIP_GROUP, &(McastGroup.imr_multiaddr)) == 0)
@@ -597,7 +613,7 @@ main (void)
 
       BytesProcessed += sizeof (struct RIPMessage);
       E = RM->Entry;
-
+      
       char interface[10] = ETH;
       strcpy(interface,getIPfromInterface(interface));
       if( strcmp(interface, inet_ntoa (SenderAddr.sin_addr)) == 0){
@@ -617,11 +633,11 @@ main (void)
 	      memset (NextHop, '\0', IPTXTLEN);
 	      strncpy (Network, inet_ntoa (E->Net), IPTXTLEN - 1);
 	      strncpy (Netmask, inet_ntoa (E->Mask), IPTXTLEN - 1);
-	      strncpy (NextHop, inet_ntoa (E->NHop), IPTXTLEN - 1);
+	      strncpy (NextHop, inet_ntoa (SenderAddr.sin_addr), IPTXTLEN - 1);
 	      printf ("\t%s/ %s, metric=%u, nh=%s, tag=%hu\n",
 		      Network, Netmask, ntohl (E->Metric),
 		      NextHop, ntohs (E->Tag));
-              addRTE(Network, NextHop, Netmask, viaETH);
+              addRTE(Network, NextHop, Netmask, viaETH, true);
 
 	    }
 	  else

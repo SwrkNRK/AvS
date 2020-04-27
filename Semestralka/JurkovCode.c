@@ -200,181 +200,6 @@ SenderThread (void *Arg)
     }
 }
 
-void natiahniTabulku(){
-    int route_sock,i,j;
-    route_request *request = (route_request *)malloc(sizeof(route_request));
-    int retValue = -1,nbytes = 0,reply_len = 0;
-    char reply_ptr[1024];
-    ssize_t counter = 1024;
-    int count =0;
-    struct rtmsg *rtp;
-    struct rtattr *rtap;
-    struct nlmsghdr *nlp;
-    int rtl;
-    //struct RouteInfo route[24];
-    char* buf = reply_ptr;
-    unsigned long bufsize ;
-
-    route_sock = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-
-    bzero(request,sizeof(route_request));
-
-    // Fill in the NETLINK header
-    request->nlMsgHdr.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
-    request->nlMsgHdr.nlmsg_type = RTM_GETROUTE;
-    request->nlMsgHdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-
-    // set the routing message header
-    request->rtMsg.rtm_family = AF_INET;
-    request->rtMsg.rtm_table = 254;
-
-    // Send routing request
-    if ((retValue = send(route_sock, request, sizeof(route_request), 0)) < 0)
-    {
-    perror("send");
-    exit(1);
-    }
-
-    for(;;)
-    {
-    /*if( counter < sizeof( struct nlmsghdr))
-    {
-    printf("Routing table is bigger than 1024\n");
-    exit(1);
-    }*/
-
-    nbytes = recv(route_sock, &reply_ptr[reply_len], counter, 0);
-
-    if(nbytes < 0 )
-    {
-    printf("Error in recv\n");
-    break;
-    }
-
-    if(nbytes == 0)
-    printf("EOF in netlink\n");
-
-    nlp = (struct nlmsghdr*)(&reply_ptr[reply_len]);
-
-    if (nlp->nlmsg_type == NLMSG_DONE)
-    {
-    // All data has been received.
-    // Truncate the reply to exclude this message,
-    // i.e. do not increase reply_len.
-    break;
-    }
-
-    if (nlp->nlmsg_type == NLMSG_ERROR)
-    {
-    printf("Error in msg\n");
-    exit(1);
-    }
-
-    reply_len += nbytes;
-    counter -= nbytes;
-    }
-
-    /*======================================================*/
-    bufsize = reply_len;
-    // string to hold content of the route
-    // table (i.e. one entry)
-    unsigned int flags;
-
-    // outer loop: loops thru all the NETLINK
-    // headers that also include the route entry
-    // header
-    nlp = (struct nlmsghdr *) buf;
-
-    for(i= -1; NLMSG_OK(nlp, bufsize); nlp=NLMSG_NEXT(nlp, bufsize))
-    {
-    // get route entry header
-    rtp = (struct rtmsg *) NLMSG_DATA(nlp);
-    // we are only concerned about the
-    // tableId route table
-    if(rtp->rtm_table != 254)
-    continue;
-    i++;
-
-                
-    // init all the strings
-    bzero(&route[i], sizeof(struct RouteInfo*));
-    flags = rtp->rtm_flags;
-    route[i].proto = rtp->rtm_protocol;
-
-    // inner loop: loop thru all the attributes of
-    // one route entry
-    rtap = (struct rtattr *) RTM_RTA(rtp);
-    rtl = RTM_PAYLOAD(nlp);
-    for( ; RTA_OK(rtap, rtl); rtap = RTA_NEXT(rtap, rtl))
-    {
-    switch(rtap->rta_type)
-    {
-    // destination IPv4 address
-    case RTA_DST:
-    count = 32 - rtp->rtm_dst_len;
-
-    route[i].dstAddr = *(unsigned long *) RTA_DATA(rtap);
-
-    route[i].mask = 0xffffffff;
-    for (; count!=0 ;count--)
-    route[i].mask = route[i].mask << 1;
-
-    //printf("dst:%s \tmask:0x%x \t",inet_ntoa(route[i].dstAddr), route[i].mask);
-    break;
-    case RTA_GATEWAY:
-    route[i].gateWay = *(unsigned long *) RTA_DATA(rtap);
-    //printf("gw:%s\t",inet_ntoa(route[i].gateWay));
-    break;
-    case RTA_PREFSRC:
-    route[i].srcAddr = *(unsigned long *) RTA_DATA(rtap);
-    //printf("src:%s\t", inet_ntoa(route[i].srcAddr));
-    break;
-    // unique ID associated with the network
-    // interface
-    case RTA_OIF:
-    ifname(*((int *) RTA_DATA(rtap)),route[i].ifName);
-    //printf( "ifname %s\n", route[i].ifName);
-    break;
-    default:
-    break;
-    }
-
-    }
-    //set Flags
-
-    //[TODO]: UP hardcoded?!
-    route[i].flags|=RTF_UP;
-    if (route[i].gateWay != 0)
-    route[i].flags|=RTF_GATEWAY;
-    if (route[i].mask == 0xFFFFFFFF)
-    route[i].flags|=RTF_HOST;
-    }
-
-    pocetRouteZaznamov = i;
-
-    // Print the route records
-    printf("Destination\t\tGateway \t\tNetmask \t\tflags \t\tIfname \n");
-    printf("-----------\t\t------- \t\t--------\t\t------\t\t------ \n");
-    for( j = 0; j<= i; j++)
-    {
-    struct in_addr pom;
-    char pole[100];
-
-    pom.s_addr = route[j].dstAddr;
-    strcpy(pole,inet_ntoa(pom));
-    printf("%-18s",pole);
-    pom.s_addr = route[j].gateWay;
-    strcpy(pole,inet_ntoa(pom));
-    printf("\t%-18s",pole);
-    route[j].mask = ntohl(route[j].mask);
-    pom.s_addr = route[j].mask;
-    strcpy(pole,inet_ntoa(pom));
-    printf("\t%-18s",pole);
-    printf("\t%-10d",route[j].flags);
-    printf("\t%-10s\n",route[j].ifName);
-
-}
-}
 
 bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool useGateway )            
 { 
@@ -399,33 +224,6 @@ bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool use
     ((struct sockaddr_in *)&route.rt_genmask)->sin_addr.s_addr = inet_addr(paGENMASK);
     ((struct sockaddr_in *)&route.rt_genmask)->sin_port = 0;
 
-<<<<<<< HEAD
-    memcpy((void*) &route.rt_gateway, addr, sizeof(*addr));
-    route.rt_dev = paETH;
-    
-/*
-   // set the host we are rejecting. 
-   addr = (struct sockaddr_in*) &route.rt_dst;
-   addr->sin_family = AF_INET;
-   addr->sin_addr.s_addr = htonl(host);
-*/
-   // Set the mask. In this case we are using 255.255.255.255, to block a single
-   // IP. But you could use a less restrictive mask to block a range of IPs. 
-   // To block and entire C block you would use 255.255.255.0, or 0x00FFFFFFF
-   addr = (struct sockaddr_in*) &route.rt_genmask;
-   addr->sin_family = AF_INET;
-   //addr->sin_addr.s_addr = 0xFFFFFFFF;
-
-
-   // These flags mean: this route is created "up", or active
-   // The blocked entity is a "host" as opposed to a "gateway"
-   // The packets should be rejected. On BSD there is a flag RTF_BLACKHOLE
-   // that causes packets to be dropped silently. We would use that if Linux
-   // had it. RTF_REJECT will cause the network interface to signal that the 
-   // packets are being actively rejected.
-   route.rt_flags = RTF_UP;
-   route.rt_metric = 1;
-=======
 
   ((struct sockaddr_in *)&route.rt_gateway)->sin_family = AF_INET;
     ((struct sockaddr_in *)&route.rt_gateway)->sin_addr.s_addr = inet_addr(paGATEWAY);
@@ -437,7 +235,6 @@ bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool use
   if(useGateway){ route.rt_flags = RTF_UP | RTF_GATEWAY;
   } else {route.rt_flags = RTF_UP;}
 
->>>>>>> c2f7ae71307f8d18d3e4b6e343e5677e1c6fdb65
     int p;
    // this is where the magic happens..
    if ( p = ioctl( fd, SIOCADDRT, &route ) )
@@ -538,11 +335,7 @@ fclose(conf);
         char MviaETH[IPTXTLEN] = ETH;
               addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
 
-///////////////////////////////////////////////////////////////////////////////////////////////NACITANIE LINUX SMEROVACEJ TABULKY
-
-  //natiahniTabulku();
-
-///////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////
   if (inet_aton (RIP_GROUP, &(McastGroup.imr_multiaddr)) == 0)
     {
       fprintf (stderr,

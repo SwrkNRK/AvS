@@ -31,7 +31,7 @@
 #define		RIP_N_METRIC	(1)
 
 #define		EXIT_ERROR	(1)
-#define ETH "eth2"
+#define     ETH "eth2"
 
 struct RIPNetEntry
 {
@@ -72,6 +72,8 @@ unsigned char proto;
 char ifName[IF_NAMESIZE];
 };
 
+struct ifreq ifaces[10];
+int pocetIfaces = 0;
 struct RouteInfo route[25];
 int routeCount = 0;
 int pocetRouteZaznamov;
@@ -105,6 +107,104 @@ strcpy(ifName, ifr.ifr_name);
 return if_index;
 } 
 
+bool delRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool useGateway )            
+{ 
+   // create the control socket.
+   //int fd = socket( PF_INET, SOCK_DGRAM, IPPROTO_IP );
+   int fd = socket( AF_INET, SOCK_DGRAM, 0 );
+   if(fd == -1){
+       perror("Socket: ");
+        return false;
+   }
+
+   struct rtentry route;
+
+      memset( &route, 0, sizeof( route ) );
+      
+
+    ((struct sockaddr_in *)&route.rt_dst)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&route.rt_dst)->sin_addr.s_addr = inet_addr(paIP);
+    ((struct sockaddr_in *)&route.rt_dst)->sin_port = 0;
+
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_addr.s_addr = inet_addr(paGENMASK);
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_port = 0;
+
+
+  ((struct sockaddr_in *)&route.rt_gateway)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&route.rt_gateway)->sin_addr.s_addr = inet_addr(paGATEWAY);
+  ((struct sockaddr_in *)&route.rt_gateway)->sin_port = 0;
+  
+   route.rt_dev = paETH;
+   route.rt_metric = 1;
+
+  if(useGateway){ route.rt_flags = RTF_UP | RTF_GATEWAY;
+  } else {route.rt_flags = RTF_UP;}
+
+    int p;
+   // this is where the magic happens..
+   if ( p = ioctl( fd, SIOCDELRT, &route ) )
+   {
+       printf("Succes %d\n",p);
+       perror("IOCTL: \n");
+      close( fd );
+      return false;
+   }
+
+   // remember to close the socket lest you leak handles.
+   close( fd );
+   return true; 
+}
+
+bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool useGateway )            
+{ 
+   // create the control socket.
+   //int fd = socket( PF_INET, SOCK_DGRAM, IPPROTO_IP );
+   int fd = socket( AF_INET, SOCK_DGRAM, 0 );
+   if(fd == -1){
+       perror("Socket: ");
+        return false;
+   }
+
+   struct rtentry route;
+
+      memset( &route, 0, sizeof( route ) );
+      
+
+    ((struct sockaddr_in *)&route.rt_dst)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&route.rt_dst)->sin_addr.s_addr = inet_addr(paIP);
+    ((struct sockaddr_in *)&route.rt_dst)->sin_port = 0;
+
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_addr.s_addr = inet_addr(paGENMASK);
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_port = 0;
+
+
+  ((struct sockaddr_in *)&route.rt_gateway)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&route.rt_gateway)->sin_addr.s_addr = inet_addr(paGATEWAY);
+  ((struct sockaddr_in *)&route.rt_gateway)->sin_port = 0;
+  
+   route.rt_dev = paETH;
+   route.rt_metric = 1;
+
+  if(useGateway){ route.rt_flags = RTF_UP | RTF_GATEWAY;
+  } else {route.rt_flags = RTF_UP;}
+
+    int p;
+   // this is where the magic happens..
+   if ( p = ioctl( fd, SIOCADDRT, &route ) )
+   {
+       printf("Succes %d\n",p);
+       perror("IOCTL: \n");
+      close( fd );
+      return false;
+   }
+
+   // remember to close the socket lest you leak handles.
+   close( fd );
+   return true; 
+}
+
 
 void *
 SenderThread (void *Arg)
@@ -136,6 +236,11 @@ SenderThread (void *Arg)
 	       RIP_GROUP);
       exit (EXIT_ERROR);
     }
+
+        char MNetwork[IPTXTLEN] = "224.0.0.0";
+	      char MNetmask[IPTXTLEN] = "255.255.255.0";
+	      char MNextHop[IPTXTLEN] = "0.0.0.0";
+        char MviaETH[IPTXTLEN] = "";
 
   for (;;)
     {
@@ -189,6 +294,15 @@ SenderThread (void *Arg)
       if (ECount == 0)
 	continue;
 
+  for(int j=0; j < pocetIfaces-1; j++){
+
+/////////////////////////////////////////////////////////////////////////////////////////PRidanie Multicast route 224.0.0.0
+
+              strcpy(MviaETH, ifaces[j].ifr_ifrn.ifrn_name);
+              addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+
       if (sendto
 	  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,
 	   sizeof (DstAddr)) == -1)
@@ -197,57 +311,12 @@ SenderThread (void *Arg)
 	  close (Socket);
 	  exit (EXIT_ERROR);
 	}
+
+    delRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
+
+  }
+
     }
-}
-
-
-bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool useGateway )            
-{ 
-   // create the control socket.
-   //int fd = socket( PF_INET, SOCK_DGRAM, IPPROTO_IP );
-   int fd = socket( AF_INET, SOCK_DGRAM, 0 );
-   if(fd == -1){
-       perror("Socket: ");
-        return false;
-   }
-
-   struct rtentry route;
-
-      memset( &route, 0, sizeof( route ) );
-      
-
-    ((struct sockaddr_in *)&route.rt_dst)->sin_family = AF_INET;
-    ((struct sockaddr_in *)&route.rt_dst)->sin_addr.s_addr = inet_addr(paIP);
-    ((struct sockaddr_in *)&route.rt_dst)->sin_port = 0;
-
-    ((struct sockaddr_in *)&route.rt_genmask)->sin_family = AF_INET;
-    ((struct sockaddr_in *)&route.rt_genmask)->sin_addr.s_addr = inet_addr(paGENMASK);
-    ((struct sockaddr_in *)&route.rt_genmask)->sin_port = 0;
-
-
-  ((struct sockaddr_in *)&route.rt_gateway)->sin_family = AF_INET;
-    ((struct sockaddr_in *)&route.rt_gateway)->sin_addr.s_addr = inet_addr(paGATEWAY);
-  ((struct sockaddr_in *)&route.rt_gateway)->sin_port = 0;
-  
-   route.rt_dev = paETH;
-   route.rt_metric = 1;
-
-  if(useGateway){ route.rt_flags = RTF_UP | RTF_GATEWAY;
-  } else {route.rt_flags = RTF_UP;}
-
-    int p;
-   // this is where the magic happens..
-   if ( p = ioctl( fd, SIOCADDRT, &route ) )
-   {
-       printf("Succes %d\n",p);
-       perror("IOCTL: \n");
-      close( fd );
-      return false;
-   }
-
-   // remember to close the socket lest you leak handles.
-   close( fd );
-   return true; 
 }
 
 char* getIPfromInterface(char* name){
@@ -271,6 +340,34 @@ char* getIPfromInterface(char* name){
  return name;
 }
 
+void createIFaceTable(){
+  int fd;
+  int i = 0;
+
+  char name[10] = "eth1";
+  char *pom = "asdas";
+  fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+  while(strcmp(pom, "0.0.0.0") != 0){
+
+  /* I want to get an IPv4 IP address */
+  ifaces[i].ifr_addr.sa_family = AF_INET;
+
+  /* I want IP address attached to "eth0" */
+  strncpy(ifaces[i].ifr_name, name, IFNAMSIZ-1);
+
+  ioctl(fd, SIOCGIFADDR, &ifaces[i]);
+
+  pom = inet_ntoa(((struct sockaddr_in *)&ifaces[i].ifr_addr)->sin_addr);
+
+  pocetIfaces++;
+  name[3]++;
+  i++;
+
+  }
+
+  close(fd);
+}
 
 
 void loadConfig(FILE* config){
@@ -327,26 +424,13 @@ fclose(conf);
   struct RIPMessage *RM;
   pthread_t TID;
 
+  createIFaceTable();
+  char *pom;
+  for(int i=0; i < pocetIfaces-1; i++){
+    pom = inet_ntoa(((struct sockaddr_in *)&ifaces[i].ifr_addr)->sin_addr);
+    printf("%s : %s\n",pom,ifaces[i].ifr_ifrn.ifrn_name);
+  }
 
-/////////////////////////////////////////////////////////////////////////////////////////PRidanie Multicast route 224.0.0.0
-          /*char iface[10] = "eth1";
-
-          char MNetwork[IPTXTLEN] = "224.0.0.0";
-	      char MNetmask[IPTXTLEN] = "255.255.255.0";
-	      char MNextHop[IPTXTLEN] = "0.0.0.0";
-          char MviaETH[IPTXTLEN] = {};
-          strcpy(MviaETH, iface);
-              addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
-
-          strcpy(iface, "eth2");
-          MNetwork[IPTXTLEN] = "224.0.0.0";
-	      MNetmask[IPTXTLEN] = "255.255.255.0";
-	      MNextHop[IPTXTLEN] = "0.0.0.0";
-          MviaETH[IPTXTLEN];
-          strcpy(MviaETH, iface);
-              addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);*/
-
-//////////////////////////////////////////////////////////////////////////////////////////////
   if (inet_aton (RIP_GROUP, &(McastGroup.imr_multiaddr)) == 0)
     {
       fprintf (stderr,

@@ -442,16 +442,6 @@ fclose(conf);
       close (Socket);
       exit (EXIT_ERROR);
     }
-  
-  if (setsockopt
-      (Socket, IPPROTO_IP, IP_ADD_MEMBERSHIP,
-       &McastGroup, sizeof (McastGroup)) == -1)
-    {
-
-      perror ("setsockopt");
-      close (Socket);
-      exit (EXIT_ERROR);
-    }
 
   if ((RM = (struct RIPMessage *) malloc (MSGLEN)) == NULL)
     {
@@ -474,13 +464,20 @@ fclose(conf);
       BytesProcessed = 0;
       memset (RM, 0, MSGLEN);
       AddrLen = sizeof (SenderAddr);
+
+        if (inet_aton (RIP_GROUP, &(McastGroup.imr_multiaddr)) == 0)
+    {
+      fprintf (stderr,
+	       "Error: %s is not a valid IPv4 address.\n\n", RIP_GROUP);
+      exit (EXIT_ERROR);
+    }
       
   if (setsockopt
       (Socket, IPPROTO_IP, IP_ADD_MEMBERSHIP,
        &McastGroup, sizeof (McastGroup)) == -1)
     {
 
-      perror ("setsockopt");
+      perror ("setsockopt2");
       close (Socket);
       exit (EXIT_ERROR);
     }

@@ -216,11 +216,6 @@ SenderThread (void *Arg)
   struct timespec TimeOut;
   struct in_addr sock_opt_addr;
 
-  char MNetwork[IPTXTLEN] = "224.0.0.0";
-	char MNetmask[IPTXTLEN] = "255.255.255.0";
-	char MNextHop[IPTXTLEN] = "0.0.0.0";
-  char MviaETH[IPTXTLEN];
-
   if (RM == NULL)
     {
       perror ("SenderThread malloc");
@@ -298,7 +293,7 @@ SenderThread (void *Arg)
   char *pom = inet_ntoa(((struct sockaddr_in *)&ifaces[i].ifr_addr)->sin_addr);
   sock_opt_addr.s_addr = inet_addr(pom);
   setsockopt(Socket, IPPROTO_IP, IP_MULTICAST_IF, &sock_opt_addr, sizeof(sock_opt_addr));
-
+  printf("\nposielam: %s\n",pom);
 
       if (sendto
 	  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,

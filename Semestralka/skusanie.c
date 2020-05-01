@@ -145,10 +145,10 @@ bool delRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool use
    // this is where the magic happens..
    if ( p = ioctl( fd, SIOCDELRT, &route ) )
    {
-       printf("Succes %d\n",p);
+  /*     printf("Succes %d\n",p);
        perror("IOCTL: \n");
       close( fd );
-      return false;
+      return false;*/
    }
 
    // remember to close the socket lest you leak handles.
@@ -190,14 +190,15 @@ bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool use
   if(useGateway){ route.rt_flags = RTF_UP | RTF_GATEWAY;
   } else {route.rt_flags = RTF_UP;}
 
+    printf("\naddRTE:%s.\n",paETH);
     int p;
    // this is where the magic happens..
    if ( p = ioctl( fd, SIOCADDRT, &route ) )
    {
-       printf("Succes %d\n",p);
+       /*printf("Succes %d\n",p);
        perror("IOCTL: \n");
       close( fd );
-      return false;
+      return false;*/
    }
 
    // remember to close the socket lest you leak handles.
@@ -269,7 +270,7 @@ SenderThread (void *Arg)
 		  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,
 		   sizeof (DstAddr)) == -1)
 		{
-		  perror ("SenderThread sendto");
+		  perror ("SenderThread sendto1");
 		  close (Socket);
 		  exit (EXIT_ERROR);
 		}
@@ -293,7 +294,7 @@ SenderThread (void *Arg)
 	  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,
 	   sizeof (DstAddr)) == -1)
 	{
-	  perror ("SenderThread sendto");
+	  perror ("SenderThread sendto2");
 	  close (Socket);
 	  exit (EXIT_ERROR);
 	}
@@ -405,18 +406,20 @@ fclose(conf);
   struct RIPMessage *RM;
   pthread_t TID;
 
-
-  char MNetwork[IPTXTLEN] = "224.0.0.0";
-	char MNetmask[IPTXTLEN] = "255.255.255.0";
-	char MNextHop[IPTXTLEN] = "0.0.0.0";
-  char MviaETH[IPTXTLEN] = "";
-
   createIFaceTable();
   char *pom;
   for(int i=0; i < pocetIfaces-1; i++){
     pom = inet_ntoa(((struct sockaddr_in *)&ifaces[i].ifr_addr)->sin_addr);
     printf("%s : %s\n",pom,ifaces[i].ifr_ifrn.ifrn_name);
   }
+
+
+  char MNetwork[IPTXTLEN] = "224.0.0.0";
+	char MNetmask[IPTXTLEN] = "255.255.255.0";
+	char MNextHop[IPTXTLEN] = "0.0.0.0";
+  char MviaETH[IPTXTLEN];
+  strcpy(MviaETH, ifaces[0].ifr_ifrn.ifrn_name);
+  addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
 
   if (inet_aton (RIP_GROUP, &(McastGroup.imr_multiaddr)) == 0)
     {
@@ -467,12 +470,14 @@ fclose(conf);
 
               strcpy(MviaETH, ifaces[j].ifr_ifrn.ifrn_name);
               addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
+              printf("\nmalo pridat %s\n",ifaces[j].ifr_ifrn.ifrn_name);
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 
   pthread_create (&TID, NULL, SenderThread, &Socket);
 
-          delRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
+          //delRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
+          printf("\nmalo odstranit %s\n",ifaces[j].ifr_ifrn.ifrn_name);
 
   }
 

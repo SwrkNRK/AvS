@@ -215,6 +215,10 @@ SenderThread (void *Arg)
   struct sockaddr_in DstAddr;
   struct timespec TimeOut;
 
+  char MNetwork[IPTXTLEN] = "224.0.0.0";
+	char MNetmask[IPTXTLEN] = "255.255.255.0";
+	char MNextHop[IPTXTLEN] = "0.0.0.0";
+  char MviaETH[IPTXTLEN];
 
   if (RM == NULL)
     {
@@ -289,6 +293,11 @@ SenderThread (void *Arg)
       if (ECount == 0)
 	continue;
 
+  for(int j=0; j < pocetIfaces-1; j++){
+
+  strcpy(MviaETH, ifaces[j].ifr_ifrn.ifrn_name);
+  addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
+
       if (sendto
 	  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,
 	   sizeof (DstAddr)) == -1)
@@ -297,6 +306,9 @@ SenderThread (void *Arg)
 	  close (Socket);
 	  exit (EXIT_ERROR);
 	}
+
+  delRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
+  }
     }
 }
 
@@ -410,19 +422,6 @@ fclose(conf);
   for(int i=0; i < pocetIfaces-1; i++){
     pom = inet_ntoa(((struct sockaddr_in *)&ifaces[i].ifr_addr)->sin_addr);
     printf("%s : %s\n",pom,ifaces[i].ifr_ifrn.ifrn_name);
-  }
-
-
-  char MNetwork[IPTXTLEN] = "224.0.0.0";
-	char MNetmask[IPTXTLEN] = "255.255.255.0";
-	char MNextHop[IPTXTLEN] = "0.0.0.0";
-  char MviaETH[IPTXTLEN];
-
-  for(int j=0; j < pocetIfaces-1; j++){
-
-  strcpy(MviaETH, ifaces[j].ifr_ifrn.ifrn_name);
-  addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
-
   }
 
   if (inet_aton (RIP_GROUP, &(McastGroup.imr_multiaddr)) == 0)

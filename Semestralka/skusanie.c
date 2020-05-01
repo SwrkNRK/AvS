@@ -419,6 +419,13 @@ fclose(conf);
     printf("%s : %s\n",pom,ifaces[i].ifr_ifrn.ifrn_name);
   }
 
+          if (inet_aton (RIP_GROUP, &(McastGroup.imr_multiaddr)) == 0)
+    {
+      fprintf (stderr,
+	       "Error: %s is not a valid IPv4 address.\n\n", RIP_GROUP);
+      exit (EXIT_ERROR);
+    }
+
   McastGroup.imr_address.s_addr = INADDR_ANY;
   McastGroup.imr_ifindex = 0;
   //McastGroup.imr_ifindex = if_nametoindex ("veth1");
@@ -434,6 +441,16 @@ fclose(conf);
   if (bind (Socket, (struct sockaddr *) &MyAddr, sizeof (MyAddr)) == -1)
     {
       perror ("bind");
+      close (Socket);
+      exit (EXIT_ERROR);
+    } 
+          
+  if (setsockopt
+      (Socket, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+       &McastGroup, sizeof (McastGroup)) == -1)
+    {
+
+      perror ("setsockopt2");
       close (Socket);
       exit (EXIT_ERROR);
     }
@@ -460,23 +477,6 @@ fclose(conf);
       memset (RM, 0, MSGLEN);
       AddrLen = sizeof (SenderAddr);
 
-        if (inet_aton (RIP_GROUP, &(McastGroup.imr_multiaddr)) == 0)
-    {
-      fprintf (stderr,
-	       "Error: %s is not a valid IPv4 address.\n\n", RIP_GROUP);
-      exit (EXIT_ERROR);
-    }
-      
-  if (setsockopt
-      (Socket, IPPROTO_IP, IP_ADD_MEMBERSHIP,
-       &McastGroup, sizeof (McastGroup)) == -1)
-    {
-
-      perror ("setsockopt2");
-      close (Socket);
-      exit (EXIT_ERROR);
-    }
-
       if ((BytesRead =
 	   recvfrom (Socket, RM, MSGLEN, 0,
 		     (struct sockaddr *) &SenderAddr, &AddrLen)) == -1)
@@ -484,7 +484,7 @@ fclose(conf);
 	  perror ("recvfrom");
 	  close (Socket);
 	  exit (EXIT_ERROR);
-	}
+	}   
 
       if (((BytesRead -
 	    sizeof (struct RIPMessage)) % sizeof (struct RIPNetEntry)) != 0)

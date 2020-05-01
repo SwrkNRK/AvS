@@ -237,11 +237,6 @@ SenderThread (void *Arg)
       exit (EXIT_ERROR);
     }
 
-        char MNetwork[IPTXTLEN] = "224.0.0.0";
-	      char MNetmask[IPTXTLEN] = "255.255.255.0";
-	      char MNextHop[IPTXTLEN] = "0.0.0.0";
-        char MviaETH[IPTXTLEN] = "";
-
   for (;;)
     {
       struct RIPNetEntry *E;
@@ -294,15 +289,6 @@ SenderThread (void *Arg)
       if (ECount == 0)
 	continue;
 
-  for(int j=0; j < pocetIfaces-1; j++){
-
-/////////////////////////////////////////////////////////////////////////////////////////PRidanie Multicast route 224.0.0.0
-
-              strcpy(MviaETH, ifaces[j].ifr_ifrn.ifrn_name);
-              addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
-
-//////////////////////////////////////////////////////////////////////////////////////////////
-
       if (sendto
 	  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,
 	   sizeof (DstAddr)) == -1)
@@ -311,11 +297,6 @@ SenderThread (void *Arg)
 	  close (Socket);
 	  exit (EXIT_ERROR);
 	}
-
-    delRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
-
-  }
-
     }
 }
 
@@ -424,6 +405,12 @@ fclose(conf);
   struct RIPMessage *RM;
   pthread_t TID;
 
+
+  char MNetwork[IPTXTLEN] = "224.0.0.0";
+	char MNetmask[IPTXTLEN] = "255.255.255.0";
+	char MNextHop[IPTXTLEN] = "0.0.0.0";
+  char MviaETH[IPTXTLEN] = "";
+
   createIFaceTable();
   char *pom;
   for(int i=0; i < pocetIfaces-1; i++){
@@ -474,7 +461,20 @@ fclose(conf);
       exit (EXIT_ERROR);
     }
 
+      for(int j=0; j < pocetIfaces-1; j++){
+
+/////////////////////////////////////////////////////////////////////////////////////////PRidanie Multicast route 224.0.0.0
+
+              strcpy(MviaETH, ifaces[j].ifr_ifrn.ifrn_name);
+              addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+
   pthread_create (&TID, NULL, SenderThread, &Socket);
+
+          delRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
+
+  }
 
   for (;;)
     {
@@ -543,7 +543,7 @@ fclose(conf);
 	      char Network[IPTXTLEN];
 	      char Netmask[IPTXTLEN];
 	      char NextHop[IPTXTLEN];
-          char viaETH[IPTXTLEN] = ETH;
+        char viaETH[IPTXTLEN] = ETH;
 	      memset (Network, '\0', IPTXTLEN);
 	      memset (Netmask, '\0', IPTXTLEN);
 	      memset (NextHop, '\0', IPTXTLEN);

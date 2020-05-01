@@ -214,6 +214,7 @@ SenderThread (void *Arg)
   int BytesToSend;
   struct sockaddr_in DstAddr;
   struct timespec TimeOut;
+  struct in_addr sock_opt_addr;
 
   char MNetwork[IPTXTLEN] = "224.0.0.0";
 	char MNetmask[IPTXTLEN] = "255.255.255.0";
@@ -293,10 +294,11 @@ SenderThread (void *Arg)
       if (ECount == 0)
 	continue;
 
-  for(int j=0; j < pocetIfaces-1; j++){
+  for(int i=0; i < pocetIfaces-1; i++){
+  char *pom = inet_ntoa(((struct sockaddr_in *)&ifaces[i].ifr_addr)->sin_addr);
+  sock_opt_addr.s_addr = inet_addr(pom);
+  setsockopt(Socket, IPPROTO_IP, IP_MULTICAST_IF, &sock_opt_addr, sizeof(sock_opt_addr));
 
-  strcpy(MviaETH, ifaces[j].ifr_ifrn.ifrn_name);
-  addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
 
       if (sendto
 	  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,
@@ -306,8 +308,6 @@ SenderThread (void *Arg)
 	  close (Socket);
 	  exit (EXIT_ERROR);
 	}
-
-  delRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
   }
     }
 }
@@ -424,13 +424,6 @@ fclose(conf);
     printf("%s : %s\n",pom,ifaces[i].ifr_ifrn.ifrn_name);
   }
 
-  if (inet_aton (RIP_GROUP, &(McastGroup.imr_multiaddr)) == 0)
-    {
-      fprintf (stderr,
-	       "Error: %s is not a valid IPv4 address.\n\n", RIP_GROUP);
-      exit (EXIT_ERROR);
-    }
-
   McastGroup.imr_address.s_addr = INADDR_ANY;
   McastGroup.imr_ifindex = 0;
   //McastGroup.imr_ifindex = if_nametoindex ("veth1");
@@ -449,7 +442,7 @@ fclose(conf);
       close (Socket);
       exit (EXIT_ERROR);
     }
-
+  
   if (setsockopt
       (Socket, IPPROTO_IP, IP_ADD_MEMBERSHIP,
        &McastGroup, sizeof (McastGroup)) == -1)
@@ -467,22 +460,9 @@ fclose(conf);
       exit (EXIT_ERROR);
     }
 
-      //for(int j=0; j < pocetIfaces-1; j++){
-
-/////////////////////////////////////////////////////////////////////////////////////////PRidanie Multicast route 224.0.0.0
-
-              //strcpy(MviaETH, ifaces[j].ifr_ifrn.ifrn_name);
-              //addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
-              //printf("\nmalo pridat %s\n",ifaces[j].ifr_ifrn.ifrn_name);
-
-//////////////////////////////////////////////////////////////////////////////////////////////
 
   pthread_create (&TID, NULL, SenderThread, &Socket);
 
-          //delRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
-          //printf("\nmalo odstranit %s\n",ifaces[j].ifr_ifrn.ifrn_name);
-
-  //}
 
   for (;;)
     {
@@ -494,6 +474,17 @@ fclose(conf);
       BytesProcessed = 0;
       memset (RM, 0, MSGLEN);
       AddrLen = sizeof (SenderAddr);
+      
+  if (setsockopt
+      (Socket, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+       &McastGroup, sizeof (McastGroup)) == -1)
+    {
+
+      perror ("setsockopt");
+      close (Socket);
+      exit (EXIT_ERROR);
+    }
+
       if ((BytesRead =
 	   recvfrom (Socket, RM, MSGLEN, 0,
 		     (struct sockaddr *) &SenderAddr, &AddrLen)) == -1)

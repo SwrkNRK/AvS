@@ -329,11 +329,22 @@ fclose(conf);
 
 
 /////////////////////////////////////////////////////////////////////////////////////////PRidanie Multicast route 224.0.0.0
-  char MNetwork[IPTXTLEN] = "224.0.0.0";
+          /*char iface[10] = "eth1";
+
+          char MNetwork[IPTXTLEN] = "224.0.0.0";
 	      char MNetmask[IPTXTLEN] = "255.255.255.0";
 	      char MNextHop[IPTXTLEN] = "0.0.0.0";
-        char MviaETH[IPTXTLEN] = ETH;
+          char MviaETH[IPTXTLEN] = {};
+          strcpy(MviaETH, iface);
               addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
+
+          strcpy(iface, "eth2");
+          MNetwork[IPTXTLEN] = "224.0.0.0";
+	      MNetmask[IPTXTLEN] = "255.255.255.0";
+	      MNextHop[IPTXTLEN] = "0.0.0.0";
+          MviaETH[IPTXTLEN];
+          strcpy(MviaETH, iface);
+              addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);*/
 
 //////////////////////////////////////////////////////////////////////////////////////////////
   if (inet_aton (RIP_GROUP, &(McastGroup.imr_multiaddr)) == 0)
@@ -448,7 +459,7 @@ fclose(conf);
 	      char Network[IPTXTLEN];
 	      char Netmask[IPTXTLEN];
 	      char NextHop[IPTXTLEN];
-        char viaETH[IPTXTLEN] = ETH;
+          char viaETH[IPTXTLEN] = ETH;
 	      memset (Network, '\0', IPTXTLEN);
 	      memset (Netmask, '\0', IPTXTLEN);
 	      memset (NextHop, '\0', IPTXTLEN);

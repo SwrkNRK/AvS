@@ -31,7 +31,7 @@
 #define		RIP_N_METRIC	(1)
 
 #define		EXIT_ERROR	(1)
-#define ETH "eth2"
+#define     ETH "eth2"
 
 struct RIPNetEntry
 {
@@ -72,6 +72,8 @@ unsigned char proto;
 char ifName[IF_NAMESIZE];
 };
 
+struct ifreq ifaces[10];
+int pocetIfaces = 0;
 struct RouteInfo route[25];
 int routeCount = 0;
 int pocetRouteZaznamov;
@@ -105,101 +107,54 @@ strcpy(ifName, ifr.ifr_name);
 return if_index;
 } 
 
+bool delRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool useGateway )            
+{ 
+   // create the control socket.
+   //int fd = socket( PF_INET, SOCK_DGRAM, IPPROTO_IP );
+   int fd = socket( AF_INET, SOCK_DGRAM, 0 );
+   if(fd == -1){
+       perror("Socket: ");
+        return false;
+   }
 
-void *
-SenderThread (void *Arg)
-{
-  int Socket = *((int *) Arg);
-  struct RIPMessage *RM = (struct RIPMessage *) malloc (MSGLEN);
-  int BytesToSend;
-  struct sockaddr_in DstAddr;
-  struct timespec TimeOut;
+   struct rtentry route;
+
+      memset( &route, 0, sizeof( route ) );
+      
+
+    ((struct sockaddr_in *)&route.rt_dst)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&route.rt_dst)->sin_addr.s_addr = inet_addr(paIP);
+    ((struct sockaddr_in *)&route.rt_dst)->sin_port = 0;
+
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_addr.s_addr = inet_addr(paGENMASK);
+    ((struct sockaddr_in *)&route.rt_genmask)->sin_port = 0;
 
 
-  if (RM == NULL)
-    {
-      perror ("SenderThread malloc");
-      close (Socket);
-      exit (EXIT_ERROR);
-    }
+  ((struct sockaddr_in *)&route.rt_gateway)->sin_family = AF_INET;
+    ((struct sockaddr_in *)&route.rt_gateway)->sin_addr.s_addr = inet_addr(paGATEWAY);
+  ((struct sockaddr_in *)&route.rt_gateway)->sin_port = 0;
+  
+   route.rt_dev = paETH;
+   route.rt_metric = 1;
 
-  memset (RM, 0, MSGLEN);
-  RM->Command = RIP_M_RESP;
-  RM->Version = RIP_VERSION;
+  if(useGateway){ route.rt_flags = RTF_UP | RTF_GATEWAY;
+  } else {route.rt_flags = RTF_UP;}
 
-  memset (&DstAddr, 0, sizeof (DstAddr));
-  DstAddr.sin_family = AF_INET;
-  DstAddr.sin_port = htons (PORT);
-  if (inet_aton (RIP_GROUP, &DstAddr.sin_addr) == 0)
-    {
-      fprintf (stderr, "Error: %s is not a valid IPv4 address.\n\n",
-	       RIP_GROUP);
-      exit (EXIT_ERROR);
-    }
+    int p;
+   // this is where the magic happens..
+   if ( p = ioctl( fd, SIOCDELRT, &route ) )
+   {
+       /*printf("Succes %d\n",p);
+       perror("IOCTL: \n");
+      close( fd );
+      return false;*/
+   }
 
-  for (;;)
-    {
-      struct RIPNetEntry *E;
-      int ECount;
-
-      E = RM->Entry;
-      memset (RM->Entry, 0, MAXRIPENTRIES * sizeof (struct RIPNetEntry));
-      BytesToSend = sizeof (struct RIPMessage);
-      ECount = 0;
-
-      TimeOut.tv_sec = 10;
-      TimeOut.tv_nsec = 0;
-      nanosleep (&TimeOut, NULL);
-
-      for (int i = 0; i < routeCount; i++)                                       //POSIELANIE
-	{
-	  E->AF = htons (AF_INET);
-	  //E->Net.s_addr = htonl ((10 << 24) + (102 << 16) + (i << 8));
-    E->Net.s_addr = route[i].dstAddr;
-	  E->Mask.s_addr = route[i].mask;
-	  E->Metric = htonl (RIP_N_METRIC);
-    E->NHop.s_addr = route[i].gateWay;
-	  BytesToSend += sizeof (struct RIPNetEntry);
-	  E++;
-	  ECount++;
-
-	  if (ECount == MAXRIPENTRIES)
-	    {
-	      if (sendto
-		  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,
-		   sizeof (DstAddr)) == -1)
-		{
-		  perror ("SenderThread sendto");
-		  close (Socket);
-		  exit (EXIT_ERROR);
-		}
-
-	      TimeOut.tv_sec = 0;
-	      TimeOut.tv_nsec = 10 * 1000 * 1000;
-	      nanosleep (&TimeOut, NULL);
-
-	      memset (RM->Entry, 0,
-		      MAXRIPENTRIES * sizeof (struct RIPNetEntry));
-	      BytesToSend = sizeof (struct RIPMessage);
-	      ECount = 0;
-	      E = RM->Entry;
-	    }
-	}
-
-      if (ECount == 0)
-	continue;
-
-      if (sendto
-	  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,
-	   sizeof (DstAddr)) == -1)
-	{
-	  perror ("SenderThread sendto");
-	  close (Socket);
-	  exit (EXIT_ERROR);
-	}
-    }
+   // remember to close the socket lest you leak handles.
+   close( fd );
+   return true; 
 }
-
 
 bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool useGateway )            
 { 
@@ -239,15 +194,117 @@ bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool use
    // this is where the magic happens..
    if ( p = ioctl( fd, SIOCADDRT, &route ) )
    {
-       printf("Succes %d\n",p);
+       /*printf("Succes %d\n",p);
        perror("IOCTL: \n");
       close( fd );
-      return false;
+      return false;*/
    }
 
    // remember to close the socket lest you leak handles.
    close( fd );
    return true; 
+}
+
+
+void *
+SenderThread (void *Arg)
+{
+  int Socket = *((int *) Arg);
+  struct RIPMessage *RM = (struct RIPMessage *) malloc (MSGLEN);
+  int BytesToSend;
+  struct sockaddr_in DstAddr;
+  struct timespec TimeOut;
+  struct in_addr sock_opt_addr;
+
+  if (RM == NULL)
+    {
+      perror ("SenderThread malloc");
+      close (Socket);
+      exit (EXIT_ERROR);
+    }
+
+  memset (RM, 0, MSGLEN);
+  RM->Command = RIP_M_RESP;
+  RM->Version = RIP_VERSION;
+
+  memset (&DstAddr, 0, sizeof (DstAddr));
+  DstAddr.sin_family = AF_INET;
+  DstAddr.sin_port = htons (PORT);
+  if (inet_aton (RIP_GROUP, &DstAddr.sin_addr) == 0)
+    {
+      fprintf (stderr, "Error: %s is not a valid IPv4 address.\n\n",
+	       RIP_GROUP);
+      exit (EXIT_ERROR);
+    }
+
+  for (;;)
+    {
+      struct RIPNetEntry *E;
+      int ECount;
+
+      E = RM->Entry;
+      memset (RM->Entry, 0, MAXRIPENTRIES * sizeof (struct RIPNetEntry));
+      BytesToSend = sizeof (struct RIPMessage);
+      ECount = 0;
+
+      TimeOut.tv_sec = 10;
+      TimeOut.tv_nsec = 0;
+      nanosleep (&TimeOut, NULL);
+
+      for (int i = 0; i < routeCount-1; i++)                                       //POSIELANIE
+	{
+	  E->AF = htons (AF_INET);
+	  //E->Net.s_addr = htonl ((10 << 24) + (102 << 16) + (i << 8));
+    E->Net.s_addr = route[i].dstAddr;
+	  E->Mask.s_addr = route[i].mask;
+	  E->Metric = htonl (RIP_N_METRIC);
+    E->NHop.s_addr = route[i].gateWay;
+	  BytesToSend += sizeof (struct RIPNetEntry);
+	  E++;
+	  ECount++;
+
+	  if (ECount == MAXRIPENTRIES)
+	    {
+	      if (sendto
+		  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,
+		   sizeof (DstAddr)) == -1)
+		{
+		  perror ("SenderThread sendto1");
+		  close (Socket);
+		  exit (EXIT_ERROR);
+		}
+
+	      TimeOut.tv_sec = 0;
+	      TimeOut.tv_nsec = 10 * 1000 * 1000;
+	      nanosleep (&TimeOut, NULL);
+
+	      memset (RM->Entry, 0,
+		      MAXRIPENTRIES * sizeof (struct RIPNetEntry));
+	      BytesToSend = sizeof (struct RIPMessage);
+	      ECount = 0;
+	      E = RM->Entry;
+	    }
+	}
+
+      if (ECount == 0)
+	continue;
+
+  for(int i=0; i < pocetIfaces-1; i++){
+  char *pom = inet_ntoa(((struct sockaddr_in *)&ifaces[i].ifr_addr)->sin_addr);
+  sock_opt_addr.s_addr = inet_addr(pom);
+  setsockopt(Socket, IPPROTO_IP, IP_MULTICAST_IF, &sock_opt_addr, sizeof(sock_opt_addr));
+  printf("\nposielam: %s\n",pom);
+
+      if (sendto
+	  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,
+	   sizeof (DstAddr)) == -1)
+	{
+	  perror ("SenderThread sendto2");
+	  close (Socket);
+	  exit (EXIT_ERROR);
+	}
+  }
+    }
 }
 
 char* getIPfromInterface(char* name){
@@ -271,6 +328,34 @@ char* getIPfromInterface(char* name){
  return name;
 }
 
+void createIFaceTable(){
+  int fd;
+  int i = 0;
+
+  char name[10] = "eth1";
+  char *pom = "asdas";
+  fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+  while(strcmp(pom, "0.0.0.0") != 0){
+
+  /* I want to get an IPv4 IP address */
+  ifaces[i].ifr_addr.sa_family = AF_INET;
+
+  /* I want IP address attached to "eth0" */
+  strncpy(ifaces[i].ifr_name, name, IFNAMSIZ-1);
+
+  ioctl(fd, SIOCGIFADDR, &ifaces[i]);
+
+  pom = inet_ntoa(((struct sockaddr_in *)&ifaces[i].ifr_addr)->sin_addr);
+
+  pocetIfaces++;
+  name[3]++;
+  i++;
+
+  }
+
+  close(fd);
+}
 
 
 void loadConfig(FILE* config){
@@ -327,32 +412,20 @@ fclose(conf);
   struct RIPMessage *RM;
   pthread_t TID;
 
+  createIFaceTable();
+  char *pom;
+  for(int i=0; i < pocetIfaces-1; i++){
+    pom = inet_ntoa(((struct sockaddr_in *)&ifaces[i].ifr_addr)->sin_addr);
+    printf("%s : %s\n",pom,ifaces[i].ifr_ifrn.ifrn_name);
+  }
 
-/////////////////////////////////////////////////////////////////////////////////////////PRidanie Multicast route 224.0.0.0
-/*
-  char MNetwork[IPTXTLEN] = "224.0.0.0";
-	      char MNetmask[IPTXTLEN] = "255.255.255.0";
-	      char MNextHop[IPTXTLEN] = "0.0.0.0";
-        char MviaETH[IPTXTLEN] = ETH;
-              addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
-<<<<<<< HEAD
-*/
-///////////////////////////////////////////////////////////////////////////////////////////////NACITANIE LINUX SMEROVACEJ TABULKY
-
-  //natiahniTabulku();
-
-///////////////////////////////////////////////////////////////////////////////////////////////
-=======
-
-//////////////////////////////////////////////////////////////////////////////////////////////
->>>>>>> 73b824ab36083ae5d3c163754b6155ddd533ab7b
-  if (inet_aton (RIP_GROUP, &(McastGroup.imr_multiaddr)) == 0)
+          if (inet_aton (RIP_GROUP, &(McastGroup.imr_multiaddr)) == 0)
     {
       fprintf (stderr,
 	       "Error: %s is not a valid IPv4 address.\n\n", RIP_GROUP);
       exit (EXIT_ERROR);
     }
-  printf("HALOOO\n");
+
   McastGroup.imr_address.s_addr = INADDR_ANY;
   McastGroup.imr_ifindex = 0;
   //McastGroup.imr_ifindex = if_nametoindex ("veth1");
@@ -370,14 +443,14 @@ fclose(conf);
       perror ("bind");
       close (Socket);
       exit (EXIT_ERROR);
-    }
-
+    } 
+          
   if (setsockopt
       (Socket, IPPROTO_IP, IP_ADD_MEMBERSHIP,
        &McastGroup, sizeof (McastGroup)) == -1)
     {
 
-      perror ("setsockopt");
+      perror ("setsockopt2");
       close (Socket);
       exit (EXIT_ERROR);
     }
@@ -389,7 +462,9 @@ fclose(conf);
       exit (EXIT_ERROR);
     }
 
+
   pthread_create (&TID, NULL, SenderThread, &Socket);
+
 
   for (;;)
     {
@@ -401,6 +476,7 @@ fclose(conf);
       BytesProcessed = 0;
       memset (RM, 0, MSGLEN);
       AddrLen = sizeof (SenderAddr);
+
       if ((BytesRead =
 	   recvfrom (Socket, RM, MSGLEN, 0,
 		     (struct sockaddr *) &SenderAddr, &AddrLen)) == -1)
@@ -408,7 +484,7 @@ fclose(conf);
 	  perror ("recvfrom");
 	  close (Socket);
 	  exit (EXIT_ERROR);
-	}
+	}   
 
       if (((BytesRead -
 	    sizeof (struct RIPMessage)) % sizeof (struct RIPNetEntry)) != 0)

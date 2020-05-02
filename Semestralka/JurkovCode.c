@@ -504,12 +504,13 @@ fclose(conf);
 
 
 /////////////////////////////////////////////////////////////////////////////////////////PRidanie Multicast route 224.0.0.0
+/*
   char MNetwork[IPTXTLEN] = "224.0.0.0";
 	      char MNetmask[IPTXTLEN] = "255.255.255.0";
 	      char MNextHop[IPTXTLEN] = "0.0.0.0";
         char MviaETH[IPTXTLEN] = ETH;
               addRTE(MNetwork, MNextHop, MNetmask, MviaETH, false);
-
+*/
 ///////////////////////////////////////////////////////////////////////////////////////////////NACITANIE LINUX SMEROVACEJ TABULKY
 
   //natiahniTabulku();
@@ -521,7 +522,7 @@ fclose(conf);
 	       "Error: %s is not a valid IPv4 address.\n\n", RIP_GROUP);
       exit (EXIT_ERROR);
     }
-
+  printf("HALOOO\n");
   McastGroup.imr_address.s_addr = INADDR_ANY;
   McastGroup.imr_ifindex = 0;
   //McastGroup.imr_ifindex = if_nametoindex ("veth1");

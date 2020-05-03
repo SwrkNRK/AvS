@@ -77,7 +77,7 @@ int routeCount = 0;
 struct ifreq ifaces[10];
 int pocetIfaces = 0;
 
-char netNH[100][100];
+struct in_addr netNH[25];
 int nextHopCount = 0;
 /*--------------------------------------------------------------
 * To get the name of the interface provided the interface index
@@ -349,10 +349,10 @@ while (c != EOF){
 buf[i] = c;
 i++;
 if(c == '\n' || c == EOF){
-    strcpy(netNH[nextHopCount],buf);
+    //netNH[nextHopCount] = inet_addr(buf);
+    inet_aton(buf, &netNH[nextHopCount]);
     nextHopCount++;
     i = 0;
-    printf("buffer : %s\n",netNH[0]);
     memset(buf, '\0', sizeof(buf));
   }
 
@@ -360,10 +360,9 @@ c = fgetc(config);
 }
 
 if(c == '\n' || c == EOF){
-    strcpy(netNH[nextHopCount],buf);
+    inet_aton(buf, &netNH[nextHopCount]);
     nextHopCount++;
     i = 0;
-    printf("buffer : %s\n",netNH[0]);
     memset(buf, '\0', sizeof(buf));
   }
 
@@ -413,7 +412,7 @@ fclose(conf);
 
 
 for(int i = 0; i < nextHopCount; i++){
-  printf("%s\n",netNH[i]);
+  printf("%s\n",inet_ntoa(netNH[i]));
 }
 
   int Socket;

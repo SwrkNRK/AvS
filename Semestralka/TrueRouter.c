@@ -77,6 +77,8 @@ int routeCount = 0;
 struct ifreq ifaces[10];
 int pocetIfaces = 0;
 
+char netNH[100][100];
+int nextHopCount = 0;
 /*--------------------------------------------------------------
 * To get the name of the interface provided the interface index
 *--------------------------------------------------------------*/
@@ -156,34 +158,18 @@ void * SenderThread (void *Arg)
   memset (RM, 0, MSGLEN);
   RM->Command = RIP_M_RESP;
   RM->Version = RIP_VERSION;
-
-
-  for (;;)
-    {
-          
-      if(switchIP){
+           
+      
         memset (&DstAddr, 0, sizeof (DstAddr));
         DstAddr.sin_family = AF_INET;
         DstAddr.sin_port = htons (PORT);
 
-          if (inet_aton ("10.0.23.2", &DstAddr.sin_addr) == 0) {
+        if (inet_aton ("224.0.0.9", &DstAddr.sin_addr) == 0) {
               fprintf (stderr, "Error: %s is not a valid IPv4 address.\n\n",RIP_GROUP);
               exit (EXIT_ERROR); }
 
-        switchIP = false;
-      } else {
-        memset (&DstAddr, 0, sizeof (DstAddr));
-        DstAddr.sin_family = AF_INET;
-        DstAddr.sin_port = htons (PORT);
-
-        if (inet_aton ("10.0.0.1", &DstAddr.sin_addr) == 0) {
-            fprintf (stderr, "Error: %s is not a valid IPv4 address.\n\n",RIP_GROUP);
-            exit (EXIT_ERROR); }
-        switchIP = true;
-      }
-
-
-
+  for (;;)
+    {
       struct RIPNetEntry *E;
       int ECount;
 
@@ -328,14 +314,13 @@ char* getIPfromInterface(char* name){
 }
 
 
-
 void loadConfig(FILE* config){
 int c = fgetc(config);
 int i=0;
 char buf[20];
 memset(buf, '\0', sizeof(buf));
 
-while (c != EOF)
+while (c != 'n')
 {
   buf[i] = c;
   i++;
@@ -356,13 +341,34 @@ while (c != EOF)
     c = fgetc(config);
 }
 
+c = fgetc(config);
+c = fgetc(config);
+i=0;
+
+while (c != EOF){
+buf[i] = c;
+i++;
 if(c == '\n' || c == EOF){
-    route[routeCount].mask = inet_addr(buf);
+    strcpy(netNH[nextHopCount],buf);
+    nextHopCount++;
+    i = 0;
+    printf("buffer : %s\n",netNH[0]);
     memset(buf, '\0', sizeof(buf));
-    i=0;
-    routeCount++;
   }
 
+c = fgetc(config);
+}
+
+if(c == '\n' || c == EOF){
+    strcpy(netNH[nextHopCount],buf);
+    nextHopCount++;
+    i = 0;
+    printf("buffer : %s\n",netNH[0]);
+    memset(buf, '\0', sizeof(buf));
+  }
+
+
+printf("count : %d\n",nextHopCount);
 }
 
 
@@ -404,6 +410,11 @@ main (int argc, char *argv[])
 FILE* conf = fopen(argv[1], "r");
 loadConfig(conf);
 fclose(conf);
+
+
+for(int i = 0; i < nextHopCount; i++){
+  printf("%s\n",netNH[i]);
+}
 
   int Socket;
   struct sockaddr_in MyAddr;

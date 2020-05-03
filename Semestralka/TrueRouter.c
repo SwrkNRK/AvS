@@ -17,7 +17,7 @@
 #include <net/if.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-
+#include <stdint.h>
 
 #define		RIP_GROUP	"224.0.0.9"
 #define		RIP_VERSION	(2)
@@ -74,7 +74,8 @@ char ifName[IF_NAMESIZE];
 
 struct RouteInfo route[25];
 int routeCount = 0;
-int pocetRouteZaznamov;
+struct ifreq ifaces[10];
+int pocetIfaces = 0;
 
 /*--------------------------------------------------------------
 * To get the name of the interface provided the interface index
@@ -105,6 +106,35 @@ strcpy(ifName, ifr.ifr_name);
 return if_index;
 } 
 
+void createIFaceTable(){
+  int fd;
+  int i = 0;
+
+  char name[10] = "eth1";
+  char *pom = "asdas";
+  fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+  while(strcmp(pom, "0.0.0.0") != 0){
+
+  /* I want to get an IPv4 IP address */
+  ifaces[i].ifr_addr.sa_family = AF_INET;
+
+  /* I want IP address attached to "eth0" */
+  strncpy(ifaces[i].ifr_name, name, IFNAMSIZ-1);
+
+  ioctl(fd, SIOCGIFADDR, &ifaces[i]);
+
+  pom = inet_ntoa(((struct sockaddr_in *)&ifaces[i].ifr_addr)->sin_addr);
+
+  pocetIfaces++;
+  name[3]++;
+  i++;
+
+  }
+
+  close(fd);
+}
+
 
 void * SenderThread (void *Arg)
 {
@@ -113,6 +143,7 @@ void * SenderThread (void *Arg)
   int BytesToSend;
   struct sockaddr_in DstAddr;
   struct timespec TimeOut;
+  bool switchIP = true;
 
 
   if (RM == NULL)
@@ -126,18 +157,33 @@ void * SenderThread (void *Arg)
   RM->Command = RIP_M_RESP;
   RM->Version = RIP_VERSION;
 
-  memset (&DstAddr, 0, sizeof (DstAddr));
-  DstAddr.sin_family = AF_INET;
-  DstAddr.sin_port = htons (PORT);
-  if (inet_aton (RIP_GROUP, &DstAddr.sin_addr) == 0)
-    {
-      fprintf (stderr, "Error: %s is not a valid IPv4 address.\n\n",
-	       RIP_GROUP);
-      exit (EXIT_ERROR);
-    }
 
   for (;;)
     {
+          
+      if(switchIP){
+        memset (&DstAddr, 0, sizeof (DstAddr));
+        DstAddr.sin_family = AF_INET;
+        DstAddr.sin_port = htons (PORT);
+
+          if (inet_aton ("10.0.23.2", &DstAddr.sin_addr) == 0) {
+              fprintf (stderr, "Error: %s is not a valid IPv4 address.\n\n",RIP_GROUP);
+              exit (EXIT_ERROR); }
+
+        switchIP = false;
+      } else {
+        memset (&DstAddr, 0, sizeof (DstAddr));
+        DstAddr.sin_family = AF_INET;
+        DstAddr.sin_port = htons (PORT);
+
+        if (inet_aton ("10.0.0.1", &DstAddr.sin_addr) == 0) {
+            fprintf (stderr, "Error: %s is not a valid IPv4 address.\n\n",RIP_GROUP);
+            exit (EXIT_ERROR); }
+        switchIP = true;
+      }
+
+
+
       struct RIPNetEntry *E;
       int ECount;
 
@@ -165,6 +211,16 @@ void * SenderThread (void *Arg)
 	  if (ECount == MAXRIPENTRIES)
 	    {
 	      if (sendto
+		  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,
+		   sizeof (DstAddr)) == -1)
+		{
+		  perror ("SenderThread sendto");
+		  close (Socket);
+		  exit (EXIT_ERROR);
+		}
+
+
+    if (sendto
 		  (Socket, RM, BytesToSend, 0, (struct sockaddr *) &DstAddr,
 		   sizeof (DstAddr)) == -1)
 		{
@@ -309,6 +365,33 @@ if(c == '\n' || c == EOF){
 
 }
 
+
+
+char* checkIP(char * IP){
+const char delim[2] = ".";
+char *pom;
+int counterStrike = 0;
+int pocitadlo = 0;
+
+for(int i = 0; i < pocetIfaces-1; i++){
+    pom = inet_ntoa(((struct sockaddr_in *)&ifaces[i].ifr_addr)->sin_addr);
+    counterStrike = 0;
+    pocitadlo = 0;
+
+
+    while (counterStrike != 3) {
+      if(IP[pocitadlo] == '.'){counterStrike++;}
+      if(IP[pocitadlo] != pom[pocitadlo]) {break;}
+      pocitadlo++;
+  }
+  if(counterStrike == 3) {return ifaces[i].ifr_ifrn.ifrn_name;}
+
+}
+
+return "NULL";
+
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -327,6 +410,15 @@ fclose(conf);
   struct ip_mreqn McastGroup;
   struct RIPMessage *RM;
   pthread_t TID;
+
+
+
+createIFaceTable();
+  char *pom;
+  for(int i=0; i < pocetIfaces-1; i++){
+    pom = inet_ntoa(((struct sockaddr_in *)&ifaces[i].ifr_addr)->sin_addr);
+    printf("%s : %s\n",pom,ifaces[i].ifr_ifrn.ifrn_name);
+  }
 
   memset(&McastGroup, 0, sizeof(struct ip_mreqn));
 
@@ -352,7 +444,7 @@ fclose(conf);
     }
 
   
-  if (bind (Socket, (struct sockaddr *) &MyAddr, sizeof (MyAddr)) == -1)
+  if (bind (Socket, (struct sockaddr *) &MyAddr, sizeof (struct sockaddr_in)) == -1)
     {
       perror ("bind");
       close (Socket);
@@ -360,11 +452,10 @@ fclose(conf);
     }
 
   if (setsockopt
-      (Socket, IPPROTO_IP, IP_ADD_MEMBERSHIP,
-       &McastGroup, sizeof(struct ip_mreqn)) == -1)
+      (Socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &McastGroup, sizeof(struct ip_mreqn)) == -1)
     {
 
-      perror ("setsockopt");
+      perror("setsockopt(IP_ADD_MEMBERSHIP)");
       close (Socket);
       exit (EXIT_ERROR);
     }
@@ -447,7 +538,7 @@ fclose(conf);
 	      char Network[IPTXTLEN];
 	      char Netmask[IPTXTLEN];
 	      char NextHop[IPTXTLEN];
-        char viaETH[IPTXTLEN] = ETH;
+        char viaETH[IPTXTLEN];
 	      memset (Network, '\0', IPTXTLEN);
 	      memset (Netmask, '\0', IPTXTLEN);
 	      memset (NextHop, '\0', IPTXTLEN);
@@ -457,7 +548,11 @@ fclose(conf);
 	      printf ("\t%s/ %s, metric=%u, nh=%s, tag=%hu\n",
 		      Network, Netmask, ntohl (E->Metric),
 		      NextHop, ntohs (E->Tag));
-              addRTE(Network, NextHop, Netmask, viaETH, true);
+
+          strcpy (viaETH, checkIP(NextHop));
+          if(strcmp(viaETH, "NULL") == 0) {printf("Neplatny update od %s\n",NextHop);} else {
+            addRTE(Network, NextHop, Netmask, viaETH, true);
+          }       
 
 	    }
 	  else

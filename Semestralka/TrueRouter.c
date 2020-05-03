@@ -137,6 +137,18 @@ void createIFaceTable(){
   close(fd);
 }
 
+void changeNextIP(struct sockaddr_in *IP, int *count, bool *last){
+  
+        memset (IP, 0, sizeof (IP));
+        IP->sin_family = AF_INET;
+        IP->sin_port = htons (PORT);
+        IP->sin_addr = netNH[*count];
+        *count += 1;
+        if(*count == nextHopCount) {
+          *last = true;
+          *count = 0;
+        }
+}
 
 void * SenderThread (void *Arg)
 {
@@ -145,7 +157,8 @@ void * SenderThread (void *Arg)
   int BytesToSend;
   struct sockaddr_in DstAddr;
   struct timespec TimeOut;
-  bool switchIP = true;
+  bool last = false;
+  int count = 0;
 
 
   if (RM == NULL)
@@ -159,17 +172,11 @@ void * SenderThread (void *Arg)
   RM->Command = RIP_M_RESP;
   RM->Version = RIP_VERSION;
            
-      
-        memset (&DstAddr, 0, sizeof (DstAddr));
-        DstAddr.sin_family = AF_INET;
-        DstAddr.sin_port = htons (PORT);
-
-        if (inet_aton ("224.0.0.9", &DstAddr.sin_addr) == 0) {
-              fprintf (stderr, "Error: %s is not a valid IPv4 address.\n\n",RIP_GROUP);
-              exit (EXIT_ERROR); }
 
   for (;;)
     {
+        changeNextIP(&DstAddr, &count, &last);
+
       struct RIPNetEntry *E;
       int ECount;
 
@@ -214,10 +221,12 @@ void * SenderThread (void *Arg)
 		  close (Socket);
 		  exit (EXIT_ERROR);
 		}
-
+        if(last){
 	      TimeOut.tv_sec = 0;
 	      TimeOut.tv_nsec = 10 * 1000 * 1000;
 	      nanosleep (&TimeOut, NULL);
+        last = false;
+        }
 
 	      memset (RM->Entry, 0,
 		      MAXRIPENTRIES * sizeof (struct RIPNetEntry));
@@ -281,8 +290,6 @@ bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool use
    // this is where the magic happens..
    if ( p = ioctl( fd, SIOCADDRT, &route ) )
    {
-       printf("Succes %d\n",p);
-       perror("IOCTL: \n");
       close( fd );
       return false;
    }

@@ -72,43 +72,18 @@ unsigned char proto;
 char ifName[IF_NAMESIZE];
 };
 
-struct RouteInfo route[25];
+struct RouteInfo route[25];           //Pole pre routy
 int routeCount = 0;
-struct ifreq ifaces[10];
+struct ifreq ifaces[10];              //Pole pre tabulka if_name : ip_addr
 int pocetIfaces = 0;
 
-struct in_addr netNH[25];
+struct in_addr netNH[25];             //Pole pre next hopy
 int nextHopCount = 0;
 /*--------------------------------------------------------------
 * To get the name of the interface provided the interface index
 *--------------------------------------------------------------*/
-int ifname(int if_index,char *ifName)
-{
-int fd,retVal = -1;
-struct sockaddr_in *sin;
-struct ifreq ifr;
 
-
-fd = socket(AF_INET, SOCK_DGRAM, 0);
-if(fd == -1)
-{
-perror("socket");
-exit(1);
-}
-
-ifr.ifr_ifindex = if_index;
-
-if(ioctl(fd, SIOCGIFNAME, &ifr, sizeof(ifr)))
-{
-perror("ioctl");
-exit(1);
-}
-
-strcpy(ifName, ifr.ifr_name);
-return if_index;
-} 
-
-void createIFaceTable(){
+void createIFaceTable(){        //Funkcia naplni pole ifaces[10] z nakonfigurovanych ifacov
   int fd;
   int i = 0;
 
@@ -137,7 +112,7 @@ void createIFaceTable(){
   close(fd);
 }
 
-void changeNextIP(struct sockaddr_in *IP, int *count, bool *last){
+void changeNextIP(struct sockaddr_in *IP, int *count, bool *last){          //zmenenie IP pri posielani
   
         memset (IP, 0, sizeof (IP));
         IP->sin_family = AF_INET;
@@ -150,7 +125,7 @@ void changeNextIP(struct sockaddr_in *IP, int *count, bool *last){
         }
 }
 
-void * SenderThread (void *Arg)
+void * SenderThread (void *Arg)           //Vlakno pre posielanie
 {
   int Socket = *((int *) Arg);
   struct RIPMessage *RM = (struct RIPMessage *) malloc (MSGLEN);
@@ -252,7 +227,7 @@ void * SenderThread (void *Arg)
 
 
 
-bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool useGateway )            
+bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool useGateway )            //Vlozenie do linux RT
 { 
    // create the control socket.
    //int fd = socket( PF_INET, SOCK_DGRAM, IPPROTO_IP );
@@ -299,7 +274,7 @@ bool addRTE( char* paIP, char* paGATEWAY, char* paGENMASK, char* paETH, bool use
    return true; 
 }
 
-char* getIPfromInterface(char* name){
+char* getIPfromInterface(char* name){       //Funkcia vrati Ip rozhrania vzhladom na vstupny parameter "nazov rozhrania" ("eth1")
   int fd;
   struct ifreq ifr;
 
@@ -321,7 +296,7 @@ char* getIPfromInterface(char* name){
 }
 
 
-void loadConfig(FILE* config){
+void loadConfig(FILE* config){          //Nacitanie konfigu z .txt suboru
 int c = fgetc(config);
 int i=0;
 char buf[20];
@@ -379,7 +354,7 @@ printf("count : %d\n",nextHopCount);
 
 
 
-char* checkIP(char * IP){
+char* checkIP(char * IP){         //Vrati nazov lokalneho rozhrania vzhladom na Source ip z ktorej prisiel packet
 const char delim[2] = ".";
 char *pom;
 int counterStrike = 0;
